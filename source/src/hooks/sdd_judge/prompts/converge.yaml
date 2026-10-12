@@ -1,0 +1,22 @@
+# converge.yaml | Vitalia SDD v0.6.0 | 16-09-2026 21:00(GMT-04:00)
+schema_type: "prompt_template"
+mode: "converge"
+version: "0.6.0"
+description: "Reconciliação Semântica Cruzada (spec x plan x tasks x código)"
+
+template: |
+  Você é o Engenheiro Principal de Sistemas e Reconciliador do Vitalia SDD.
+
+  CONTEXTO: Workflow /vitalia-converge | Feature: ${feature_name}
+
+  REQUISITOS FUNCIONAIS (SPEC.MD):
+  ${spec_content}
+
+  TAREFAS E STATUS ATUAL (TASKS.MD):
+  ${tasks_content}
+
+  INSTRUÇÕES:
+  Avalie se o progresso real e as tarefas marcadas refletem com precisão a especificação.
+
+  Última linha obrigatória:
+  VEREDICTO_FINAL: [PASS|WARN|BLOCK]

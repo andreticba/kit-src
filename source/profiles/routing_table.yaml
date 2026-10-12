@@ -1,0 +1,331 @@
+# routing_table.yaml | Vitalia SDD v0.6.0 | 07-09-2026 18:47(GMT-04:00)
+# Mapa canônico: intenção do usuário → slash command Vitalia SDD
+# Lido por: vitalia-route.toml via guardian_context.py
+# Adaptador: RoutingTableAdapter (schema_type: routing_table)
+
+schema_type: "routing_table"
+schema_version: "0.6.0"
+
+agents:
+  # ── CICLO DE SESSÃO ──────────────────────────────────────────────────────────
+  - id: "session-start"
+    name: "Início de Sessão"
+    command: "/vitalia-session-start"
+    emoji: "🚀"
+    gates: ["route"]
+    priority: 1
+    fallback: false
+    patterns:
+      - "iniciar sessão"
+      - "começar"
+      - "onde parei"
+      - "cold start"
+      - "retomar"
+      - "abrir sessão"
+      - "bom dia"
+      - "vamos começar"
+    description: "Recupera contexto completo e apresenta P0. Usar quando o usuário quer explicitamente iniciar ou retomar uma sessão."
+
+  - id: "session-end"
+    name: "Encerramento de Sessão"
+    command: "/vitalia-session-end"
+    emoji: "🏁"
+    gates: ["route"]
+    priority: 1
+    patterns:
+      - "encerrar sessão"
+      - "finalizar"
+      - "salvar e sair"
+      - "commitar contexto"
+      - "fechar o dia"
+      - "terminar"
+    description: "Reflexão, atualização 3-Tier, commit e shard."
+
+  - id: "session-consolidate"
+    name: "Consolidação"
+    command: "/vitalia-session-consolidate"
+    emoji: "🔄"
+    gates: ["route"]
+    priority: 2
+    patterns:
+      - "consolidar"
+      - "sincronizar"
+      - "push contexto"
+      - "dashboard"
+      - "atualizar readme"
+      - "consolidar shards"
+    description: "Consolida shards e renderiza README visual do contexto."
+
+  # ── SDD PIPELINE PRINCIPAL ───────────────────────────────────────────────────
+  # C11: brainstorming é o fallback padrão — intenção vaga → ciclo socrático
+  - id: "brainstorming"
+    name: "Brainstorming"
+    command: "/vitalia-brainstorming"
+    emoji: "🌀"
+    gates: ["route"]
+    priority: 1
+    fallback: true
+    patterns:
+      - "brainstorming"
+      - "explorar"
+      - "pensar sobre"
+      - "ideia"
+      - "discutir"
+      - "design thinking socrático"
+      - "quero construir"
+      - "como poderíamos"
+    description: "Supervisor do ciclo SDD. Fallback padrão: intenção vaga ou sem match → brainstorming socrático (C11)."
+
+  - id: "spec-specify"
+    name: "Especificação"
+    command: "/vitalia-spec-specify"
+    emoji: "📋"
+    gates: ["route"]
+    priority: 2
+    patterns:
+      - "especificar"
+      - "criar spec"
+      - "escrever requisitos"
+      - "feature spec"
+      - "nova feature"
+      - "spec-specify"
+    description: "Traduz pedido em spec.md formal com FR-xxx, SC-xxx e Given/When/Then."
+
+  - id: "spec-plan"
+    name: "Plano Técnico"
+    command: "/vitalia-spec-plan"
+    emoji: "🗺️"
+    gates: ["route"]
+    priority: 2
+    patterns:
+      - "planejar"
+      - "criar plano"
+      - "arquitetura da feature"
+      - "spec-plan"
+      - "plan.md"
+    description: "Lê spec aprovada e propõe arquitetura técnica com decisões documentadas."
+
+  - id: "spec-tasks"
+    name: "Tarefas"
+    command: "/vitalia-spec-tasks"
+    emoji: "✅"
+    gates: ["route"]
+    priority: 2
+    patterns:
+      - "criar tasks"
+      - "quebrar em tarefas"
+      - "spec-tasks"
+      - "tasks.md"
+      - "tarefas atômicas"
+    description: "Converte plan.md aprovado em tasks.md com tarefas atômicas."
+
+  - id: "spec-implement"
+    name: "Implementação"
+    command: "/vitalia-spec-implement"
+    emoji: "⚙️"
+    gates: ["route"]
+    priority: 2
+    patterns:
+      - "implementar"
+      - "codar"
+      - "executar tasks"
+      - "iniciar implementação"
+      - "spec-implement"
+    description: "Executa rigorosamente o tasks.md aprovado."
+
+  - id: "task-verifier"
+    name: "Verificador de Tarefas"
+    command: "/vitalia-task-verifier"
+    emoji: "🔍"
+    gates: ["route"]
+    priority: 2
+    patterns:
+      - "verificar tasks"
+      - "checar constituição"
+      - "task-verifier"
+      - "compliance"
+      - "validar tarefas"
+    description: "Sub-agente que checa tasks.md contra a constitution antes da implementação."
+
+  # ── FERRAMENTAS DE QUALIDADE ─────────────────────────────────────────────────
+  - id: "analyze"
+    name: "Análise"
+    command: "/vitalia-analyze"
+    emoji: "🔬"
+    gates: ["route"]
+    priority: 2
+    patterns:
+      - "analisar"
+      - "análise de consistência"
+      - "verificar spec"
+      - "gap análise"
+    description: "Análise read-only de consistência entre spec.md, plan.md e tasks.md."
+
+  - id: "review"
+    name: "Revisão de Código"
+    command: "/vitalia-review"
+    emoji: "👁️"
+    gates: ["route"]
+    priority: 2
+    patterns:
+      - "revisar código"
+      - "code review"
+      - "auditar"
+      - "qualidade"
+      - "review"
+    description: "Audita qualidade, arquitetura e segurança de arquivo ou diretório."
+
+  - id: "converge"
+    name: "Convergência"
+    command: "/vitalia-converge"
+    emoji: "🎯"
+    gates: ["route"]
+    priority: 2
+    patterns:
+      - "converge"
+      - "reconciliar"
+      - "tasks desatualizadas"
+      - "código vs spec"
+    description: "Avalia código real contra spec/plan/tasks e reconcilia o tasks.md."
+
+  - id: "debug"
+    name: "Debug"
+    command: "/vitalia-debug"
+    emoji: "🐛"
+    gates: ["route"]
+    priority: 1
+    patterns:
+      - "debug"
+      - "depurar"
+      - "erro"
+      - "bug"
+      - "falha"
+      - "não funciona"
+      - "exception"
+    description: "Fluxo sistemático de depuração para isolar falhas."
+
+  - id: "continue"
+    name: "Continuar"
+    command: "/vitalia-continue"
+    emoji: "▶️"
+    gates: ["route"]
+    priority: 1
+    patterns:
+      - "continuar"
+      - "retomar implementação"
+      - "continue"
+      - "próximo arquivo"
+    description: "Retoma implementação de feature ou arquivo com contexto completo."
+
+  - id: "clarify"
+    name: "Clarificação"
+    command: "/vitalia-clarify"
+    emoji: "❓"
+    gates: ["route"]
+    priority: 2
+    patterns:
+      - "clarificar"
+      - "ambiguidade"
+      - "dúvida na spec"
+      - "clarify"
+    description: "Detecta e resolve ambiguidades no spec.md ativo."
+
+  - id: "pair"
+    name: "Pair Programming"
+    command: "/vitalia-pair"
+    emoji: "👥"
+    gates: ["route"]
+    priority: 2
+    patterns:
+      - "pair programming"
+      - "parear"
+      - "programar junto"
+      - "chunk por chunk"
+    description: "Modo pair programming estruturado — propõe cada chunk."
+
+  - id: "adr"
+    name: "ADR"
+    command: "/vitalia-adr"
+    emoji: "📐"
+    gates: ["route"]
+    priority: 3
+    patterns:
+      - "ADR"
+      - "decision record"
+      - "decisão arquitetural"
+      - "documentar decisão"
+    description: "Cria Architecture Decision Record de forma interativa."
+
+  - id: "release"
+    name: "Release"
+    command: "/vitalia-release"
+    emoji: "🚢"
+    gates: ["route"]
+    priority: 3
+    patterns:
+      - "release"
+      - "publicar"
+      - "changelog"
+      - "versionar"
+      - "tag"
+    description: "Prepara e executa processo de release com checklist e changelog."
+
+  # ── DOMÍNIOS ESPECIALIZADOS ──────────────────────────────────────────────────
+  - id: "medical-gate"
+    name: "Medical Gate"
+    command: "/vitalia-medical-gate"
+    emoji: "🩺"
+    gates: ["route"]
+    priority: 1
+    patterns:
+      - "clínico"
+      - "diagnóstico"
+      - "biomarcador"
+      - "dosagem"
+      - "HITL médico"
+      - "risco clínico"
+      - "protocolo médico"
+      - "saúde"
+      - "dado de saúde"
+    description: "Gate de segurança clínica — avalia risco e emite constraints HITL."
+
+  - id: "science-review"
+    name: "Revisão Científica"
+    command: "/vitalia-science-review"
+    emoji: "🔭"
+    gates: ["route"]
+    priority: 2
+    patterns:
+      - "revisão científica"
+      - "evidência"
+      - "nível de evidência"
+      - "science-review"
+      - "artigo científico"
+    description: "Coordena revisão científica de features antes de publicar."
+
+  - id: "vitalia-integrative-review"
+    name: "Revisão Integrativa"
+    command: "/vitalia-vitalia-integrative-review"
+    emoji: "📚"
+    gates: ["route"]
+    priority: 2
+    patterns:
+      - "revisão integrativa"
+      - "PRISMA"
+      - "Scopus"
+      - "Web of Science"
+      - "revisão de literatura"
+    description: "Workflow de revisão integrativa com PRISMA, Scopus e Web of Science."
+
+  - id: "skill-evaluation"
+    name: "Avaliação de Skills"
+    command: "/vitalia-skill-evaluation"
+    emoji: "��"
+    gates: ["route"]
+    priority: 3
+    patterns:
+      - "avaliar skill"
+      - "gargalo"
+      - "skill-evaluation"
+      - "otimizar workflow"
+    description: "Analisa histórico da sessão para identificar gargalos e recomendar melhorias."

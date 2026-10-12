@@ -1,0 +1,199 @@
+description = "Executa rigorosamente o tasks.md aprovado, verificando checklists antes de iniciar, marcando [X] ao concluir cada task e validando Acceptance Scenarios ao final."
+
+[meta]
+version          = "0.3.0"
+hardware_profile = "heavy"   # pode precisar de tool calling para escrever arquivos
+domain_gates     = []
+model_profile    = "flash"
+
+[hooks]
+before = ["python3 {{VITALIA_KIT_DIR}}/src/hooks/scan_environment.py"]   # pair mode pode ser injetado aqui via extensions.yml
+after  = ["python3 {{VITALIA_KIT_DIR}}/src/hooks/sdd_judge.py --mode after_task"]
+
+[tools]
+required = ["write_file", "read_file"]
+optional = ["web_search", "run_command"]
+
+[context]
+reads  = [
+  ".vitalia/feature.json",
+  "specs/*/tasks.md",
+  "specs/*/plan.md",
+  "specs/*/spec.md",
+  "specs/*/checklists/"
+]
+writes = [
+  "specs/*/tasks.md",   # marcação [X]/[/]
+  "[arquivos de código do projeto conforme tasks.md]"
+]
+
+[variables]
+input  = ["args", "feature_directory"]
+output = ["tasks_completed", "tasks_failed", "acceptance_passed"]
+
+[transport]
+preferred     = "redis"
+redis_key     = "vitalia:workflow:implement"
+file_path     = ".vitalia/pipeline.json"
+session_shard = true
+
+
+[guardian]
+yaml_sources = ["constitution"]
+guardian_profile = "gp_spec-implement"
+
+prompt = """
+## User Input
+
+```text
+{{args}}
+```
+
+---
+
+## Propósito
+
+Executar o `tasks.md` aprovado de forma sistemática, fase por fase, rastreando
+progresso via marcação `[X]` e validando os Acceptance Scenarios da spec ao final.
+
+---
+
+## Comportamento
+
+### Passo 1: Verificar hooks `before_implement`
+
+Se `.vitalia/extensions.yml` existir, processar hooks em `hooks.before_implement`.
+Exemplo: `/vitalia-pair` (modo pair programming) pode ser acionado aqui com `optional: true`.
+
+### Passo 2: Verificar checklists de qualidade
+
+Escanear todos os arquivos em `{feature_directory}/checklists/`:
+
+```
+| Checklist            | Total | Completos | Incompletos | Status   |
+|----------------------|-------|-----------|-------------|----------|
+| requirements.md      | 14    | 14        | 0           | ✅ PASS  |
+| security.md          | 8     | 5         | 3           | ❌ FAIL  |
+```
+
+- Se qualquer checklist tiver itens `[ ]` incompletos → perguntar se prossegue
+- Se todos aprovados → prosseguir automaticamente
+
+### Passo 3: Carregar contexto completo
+
+- **Obrigatório**: `tasks.md`, `plan.md`
+- **Opcional**: `spec.md`, `data-model.md`, `contracts/`
+
+### Passo 4: Setup do ambiente
+
+Antes de escrever qualquer código:
+
+0. **Ambiente Python** (se projeto usa Python — verificar via plan.md):
+   - Localizar e ativar o venv: `source .venv/bin/activate` (ou equivalente)
+   - **Verificar Python do venv** (não do sistema): `python --version`
+     → O resultado deve coincidir com o Python declarado no plan.md
+   - Verificar deps instaladas vs requirements.txt
+   - Rodar `pip check` para detectar conflitos de compatibilidade entre libs
+   - **Para toda lib nova** que será adicionada ao requirements: pesquisar versão atual em
+     pypi.org antes de escrever o `pip install` — nunca assumir versão pelo conhecimento interno
+
+1. **Git**: verificar `.gitignore` — adicionar padrões faltantes:
+   - Python: `__pycache__/`, `*.pyc`, `.venv/`, `dist/`, `*.egg-info/`
+   - Node.js: `node_modules/`, `dist/`, `build/`, `.env*`
+   - Universal: `.DS_Store`, `*.tmp`, `*.swp`
+2. **Docker** (se Dockerfile detectado): verificar `.dockerignore`
+3. **Secrets**: verificar `.env.example` se plan.md menciona variáveis de ambiente
+
+### Passo 5: Executar tasks fase por fase
+
+**Protocolo de execução**:
+
+```
+Para cada fase no tasks.md:
+  → Anunciar: "Iniciando Phase N: [título]"
+
+  Para cada task na fase:
+    → Marcar como em andamento: - [/] T001 ...
+    → Executar: escrever/modificar arquivos
+    → Ao concluir: marcar - [X] T001 ...
+    → Reportar: "✅ T001: [arquivo criado/modificado]"
+
+    ┌── Gate Pós-Task (SDDJudge) ─────────────────────────────────────────┐
+    │  python3 ~/.vitalia/src/hooks/sdd_judge.py --mode after_task        │
+    │  • Exit code 0 → prosseguir para a próxima task                     │
+    │  • Exit code 1 → BLOQUEAR. Reverter ou corrigir o código antes de   │
+    │    marcar a task como [X] e avançar.                                 │
+    └─────────────────────────────────────────────────────────────────────┘
+
+  → "Phase N concluída — N tasks"
+```
+
+**Regras de dependência**:
+- Tasks **sequenciais** → parar se houver erro
+- Tasks **[P] (paralelas)** → se uma falhar, continuar as outras; reportar falha ao final do bloco
+- Nunca iniciar Phase N+1 antes de Phase N completa
+
+**Commits atômicos sugeridos** (após cada fase):
+```
+Após Phase 1: git commit -m "setup: estrutura inicial [T001-T002]"
+Após Phase 2: git commit -m "foundation: modelos e migrations [T003-T004]"
+Após Phase 3: git commit -m "feat(US1): [título] [T005-T007]"
+```
+
+### Passo 6: Validação dos Acceptance Scenarios
+
+Após a última fase, verificar cada `Given/When/Then` de cada US coberta:
+
+```
+Validando US1 — [Título]:
+
+Cenário 1:
+  Given [estado inicial] → [verificar se alcançável]
+  When  [ação]           → [verificar se implementada]
+  Then  [resultado]      → [verificar se produzido]
+  Status: ✅ PASS / ❌ FAIL — [explicação]
+```
+
+### Passo 7: Verificar hooks `after_implement`
+
+Executar hooks em `hooks.after_implement` conforme política.
+
+### Passo 8: Relatório de conclusão
+
+```
+Implementação concluída — [FEATURE]
+
+Tasks executadas: N/N
+  ✅ Concluídas [X]: N
+  ❌ Falhas: N (lista)
+  ⏭️ Puladas: N (motivo)
+
+Acceptance Scenarios:
+  US1: 3/3 ✅
+  US2: 2/3 ✅, 1 ❌ — [descrição]
+
+Arquivos criados/modificados: [lista]
+
+Próximo passo sugerido: /vitalia-release
+```
+
+---
+
+## Princípios
+
+- **Checklists antes de código** — nunca implementar com qualidade pendente
+- **`[X]` maiúsculo** — distinção visual de `[x]` do sistema
+- **`[/]` para em andamento** — rastreabilidade durante execução
+- **Parar em erros sequenciais, continuar em `[P]`** — paralelismo não bloqueia por falha isolada
+- **Acceptance Scenarios são o critério final** — `Then` da spec é o contrato de entrega
+- **Commits atômicos** — nunca acumular múltiplas fases num único commit
+
+---
+
+## Done When
+
+- [ ] Todos os checklists verificados antes de iniciar
+- [ ] Todas as tasks executadas com marcação [X]
+- [ ] Acceptance Scenarios validados para cada US
+- [ ] Relatório de conclusão entregue
+"""

@@ -1,0 +1,53 @@
+description = "Workflow de revisão integrativa de literatura científica. Guia o pesquisador desde a configuração do repositório até a execução da revisão com PRISMA, Scopus e Web of Science."
+
+[meta]
+version = "0.4.0"
+hardware_profile = "standard"
+domain_gates = ["medical-gate", "science-gate"]
+
+[hooks]
+before = []
+after = []
+
+[tools]
+required = ["read_file", "write_file"]
+optional = ["search_web"]
+
+[context]
+reads = []
+writes = [".vitalia/memory/data_storage/research/"]
+
+[transport]
+preferred = "redis"
+redis_key = "vitalia:workflow:integrative-review"
+file_path = ".vitalia/pipeline.json"
+session_shard = true
+
+prompt = """
+## User Input
+
+```text
+{{args}}
+```
+
+<!-- vitalia-integrative-review.md | Atualizado pela Spec 2.1 -->
+
+# /vitalia-integrative-review — Revisão Integrativa PRISMA
+
+{{args}}
+
+---
+
+## Propósito
+
+Isolar o processo rigoroso de pesquisa científica (antigamente embutido no session-start) para uso explícito e intencional. Ajuda o pesquisador a configurar as pastas, formular strings de busca (Scopus / Web of Science) e seguir o método PRISMA.
+
+---
+
+## Comportamento Obrigatório
+
+1. **Reconhecimento do Ambiente:** Verifique se as pastas de `.vitalia/memory/data_storage/research/` existem. Se não existirem, proponha criá-las (usando bash commands).
+2. **Setup do Protocolo:** Inicie um questionário guiado para preencher o protocolo de revisão.
+3. **Strings de Busca:** Avalie e proponha strings de busca booleanas adaptadas para as bases acadêmicas (Scopus, WoS, PubMed, se aplicável).
+4. **Aplicação do PRISMA:** Auxilie na triagem (Leitura de títulos e resumos -> Leitura na íntegra -> Extração de dados), documentando o fluxograma PRISMA no repositório local.
+"""

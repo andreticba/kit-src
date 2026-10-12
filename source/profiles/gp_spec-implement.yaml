@@ -1,0 +1,24 @@
+# gp_spec-implement.yaml | Vitalia SDD v0.6.0 | 07-09-2026 14:28(GMT-04:00)
+# Guardian Profile para o workflow spec-implement.
+# Objetivo: máxima governança durante implementação — TDD, segredo, artefato.
+# Domínios ativos: GOVERNANCE, INFRASTRUCTURE, SECRETS, AGENT_SECURITY, OBSERVABILITY
+
+schema_type: "guardian_profile"
+schema_version: "0.6.0"
+workflow: "spec-implement"
+
+tokens:
+  total_budget: 500
+  source_weights:
+    constitution: 0.85
+    routing_table: 0.15
+
+constitution:
+  domains: ["GOVERNANCE", "INFRASTRUCTURE", "SECRETS", "AGENT_SECURITY", "OBSERVABILITY"]
+  severity_filter: ["BLOCKING", "WARNING"]
+  principles_include: ["P01", "P04", "P05", "P06", "P10", "P12", "P15", "P16"]
+
+session_context:
+  include_p0: true
+  include_active_feature: true
+  include_agents_queue: true

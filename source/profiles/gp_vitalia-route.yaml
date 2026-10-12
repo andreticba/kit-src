@@ -1,0 +1,27 @@
+# gp_vitalia-route.yaml | Vitalia SDD v0.6.0 | 14-09-2026 19:51(GMT-04:00)
+# Guardian Profile para vitalia-route (Dispatcher).
+# Contratos: C7, C11
+# route e dispatcher leve -- constitution minima + routing_table + brainstorming_intents
+
+schema_type: "guardian_profile"
+schema_version: "0.6.0"
+workflow: "vitalia-route"
+
+tokens:
+  total_budget: 450
+  source_weights:
+    constitution: 0.25
+    routing_table: 0.75
+    brainstorming_intents: 0.20
+    agents_catalog: 0.30
+
+constitution:
+  domains: ["GOVERNANCE", "AGENT_SECURITY"]
+  severity_filter: ["BLOCKING"]
+  principles_include: ["P01", "P08", "P11"]
+
+session_context:
+  include_p0: true
+  include_active_feature: true
+  include_agents_queue: false
+  include_user_input: true

@@ -1,0 +1,129 @@
+description = "Analisa ativamente o histórico da sessão (transcript) para identificar gargalos,"
+
+[meta]
+version = "0.3.0"
+hardware_profile = "lightweight"
+domain_gates = []
+
+[hooks]
+before = []
+after = []
+
+[tools]
+required = ["read_file"]
+optional = ["write_file"]
+
+[context]
+reads = [".vitalia/feature.json"]
+writes = []
+
+[transport]
+preferred = "redis"
+redis_key = "vitalia:workflow:skill-evaluation"
+file_path = ".vitalia/pipeline.json"
+session_shard = true
+
+prompt = """
+## User Input
+
+```text
+{{args}}
+```
+
+---
+description: >
+  Analisa ativamente o histórico da sessão (transcript) para identificar gargalos,
+  erros e repetições. Propõe proativamente novas skills e melhorias estruturais (rules/agentes)
+  preenchendo um rascunho completo do pipeline HITL para aprovação do usuário.
+---
+<!-- skill-evaluation.md | Atualizado em: 26-06-2026 12:08:28(GMT-04:00) -->
+
+# /skill-evaluation — Curadoria Proativa e Avaliação de Skills
+
+{{args}}
+
+---
+
+## Propósito
+
+Em vez de aguardar passivamente uma ideia do usuário, este workflow atua como um **analista de processos**. Ele vasculha os logs da sessão (incluindo falhas, correções e comandos repetitivos) para sugerir proativamente:
+1. **Melhorias Estruturais:** Ajustes em regras, prompts de agentes ou configurações para evitar que erros recentes se repitam.
+2. **Novas Skills:** Automações para eliminar atrito e padronizar fluxos.
+
+---
+
+## Comportamento
+
+### Fase 1: Análise Ativa de Log (Silencioso)
+
+```
+1. O agente deve localizar e ler o arquivo `transcript.jsonl` (ou logs do terminal) da conversa atual.
+2. Analisar as iterações focando em:
+   - Comandos de terminal que falharam repetidamente (erros de sintaxe, paths, APIs).
+   - Fluxos onde o agente precisou de múltiplas correções do humano para acertar.
+   - Processos repetitivos (ex: gerar 3 CSVs de forma sequencial com as mesmas lógicas).
+3. Ler o `CONTEXT.md` para alinhar as descobertas ao estado atual do projeto.
+```
+
+### Fase 2: Apresentação do Diagnóstico (Cardápio)
+
+O agente apresenta um relatório ordenado estritamente por ordem de importância e impacto (sem limites de quantidade):
+
+```markdown
+## 🔍 Diagnóstico de Processos da Sessão
+
+### 🛠️ Melhorias Estruturais Recomendadas
+*Ajustes para evitar repetição de falhas operacionais.*
+1. **[Nome da Melhoria]**: [O que aconteceu no log] → [O que alterar (ex: agent_rules.md, template_x.md)]
+2. [Outra melhoria...]
+
+### ⚡ Skills Candidatas Detectadas
+*Automações para reduzir atrito.*
+1. **[Nome da Skill]**: [Qual problema resolve e como funcionará]
+2. [Outra skill...]
+```
+
+O agente pausa e pergunta: *"Deseja aplicar as melhorias estruturais agora e/ou avançar para a avaliação detalhada de alguma das skills candidatas?"*
+
+### Fase 3: Rascunho HITL Pré-Preenchido (Para a Skill Escolhida)
+
+Se o usuário escolher avançar com a criação de uma skill, o agente **não fará as perguntas em branco**. Ele apresentará o pipeline HITL **já preenchido** com suas melhores deduções lógicas estruturais, pedindo apenas aprovação ou edições.
+
+```markdown
+## 📋 Proposta de Design: [Nome da Skill]
+
+Por favor, revise o rascunho abaixo. Confirme (S) ou indique o que precisa ser ajustado para que eu possa gerar o arquivo.
+
+**1. Descrição:** [Preenchido pelo agente baseado na análise do log. Qual o input e output?]
+**2. Escopo:** [Local (.specify/extensions/lib) ou Global (kit-v2/extensions/lib) — sugerido com justificativa]
+**3. Método de Invocação:** [Como será chamada (ex: slash command, sub-rotina)]
+**4. Trânsito de Dados:** [Formato de input/output — JSON / Arquivos / Text]
+**5. Auditoria e Rastreabilidade:** [Como gerará logs compatíveis com PRISMA-S, se aplicável]
+**6. Mitigação de Viés:** [Quais riscos a automação traz e como o código os evitará]
+
+**Decisão:**
+Aguardo sua revisão. (Aprovar / Editar tópico X / Descartar)
+```
+
+### Fase 4: Execução e Atualização de Contexto
+
+```
+Se aprovado sem ajustes:
+→ O agente aciona o `workflow-skill-creator` passando os parâmetros literais da Fase 3.
+→ Salva no caminho definido.
+→ Atualiza o `CONTEXT.md` e o `SESSION_HISTORY.md` registrando a nova ferramenta.
+
+Se houver ajustes:
+→ O agente refina a proposta imediatamente e pede nova validação antes de criar o código.
+```
+
+---
+
+## Saídas Possíveis
+
+| Resultado | Ação do Agente |
+|---|---|
+| Melhoria Estrutural Aprovada | Modifica diretamente os arquivos relevantes (`.md` ou `.yaml`) com `replace_file_content`. |
+| Skill Aprovada (Local) | Aciona `workflow-skill-creator` gerando `.specify/extensions/lib/<nome>/SKILL.md` |
+| Skill Aprovada (Global) | Aciona `workflow-skill-creator` gerando `kit-v2/extensions/lib/<nome>/SKILL.md` |
+"""

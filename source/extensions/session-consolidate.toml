@@ -1,0 +1,126 @@
+description = "Consolida os shards e renderiza o README visual do contexto."
+
+[meta]
+version = "0.4.0"
+hardware_profile = "lightweight"
+domain_gates = []
+
+[hooks]
+before = []
+after = []
+
+[tools]
+required = ["read_file", "run_command"]
+optional = []
+
+[context]
+reads = [
+  ".vitalia/feature.json",
+  "{{VITALIA_KIT_DIR}}/config/schemas/learning_schema.json",
+  "{{VITALIA_KIT_DIR}}/config/schemas/decision_schema.json",
+  "{{VITALIA_KIT_DIR}}/config/schemas/grounding_domain_schema.json",
+  ".vitalia/memory/session/data/learnings.jsonl",
+  ".vitalia/memory/session/data/decisions.jsonl",
+  ".vitalia/memory/session/data/grounding-domains.jsonl"
+]
+writes = []
+
+[transport]
+preferred = "redis"
+redis_key = "vitalia:workflow:session-consolidate"
+file_path = ".vitalia/pipeline.json"
+session_shard = true
+
+[guardian]
+yaml_sources = ["constitution", "grounding_domains"]
+guardian_profile = "gp_session-consolidate"
+
+prompt = """
+## User Input
+
+```text
+{{args}}
+```
+
+<!-- session-consolidate.md | Atualizado pela Spec 3.1 -->
+
+# /session-consolidate — Consolidação e Dashboard Visual
+
+{{args}}
+
+---
+
+## Propósito
+
+Responsável por ler os shards, reconstruir o `README.md` (Dashboard Visual) do repositório de contexto e commitar/empurrar a pasta `.vitalia/memory/session/` para a nuvem.
+
+---
+
+## Pipeline
+
+### Passo 1: Pull --rebase
+Execute `git -C .vitalia/memory/session pull --rebase`.
+Se houver conflito, aborte imediatamente e exiba mensagem solicitando intervenção manual (HITL).
+
+### Passo 2: Invocar Motor de Contexto
+Execute `python3 {{VITALIA_KIT_DIR}}/src/vitalia_context_engine.py --action consolidate`.
+O script vai checar o semáforo. Se estiver bloqueado (abortar), mostre a mensagem de bloqueio para o usuário e encerre. Se prosseguir, ele adquire o lock, regenera o `README.md` e as views.
+
+### Passo 3: Exibição de Resumo (Interface)
+Após o motor Python compilar os dados, leia os arquivos `.vitalia/memory/session/LEARNINGS.md` e `.vitalia/memory/session/DECISIONS.md`. Exiba no chat um resumo elegante dos aprendizados e decisões mais relevantes para o usuário.
+
+### Passo 3.5: Curadoria de Domínios de Grounding (HITL)
+
+O arquivo `.vitalia/memory/session/data/grounding-domains.jsonl` já foi lido no seu contexto inicial (se existir). Utilize o `grounding_domain_schema.json` para interpretar seu conteúdo:
+1. Construa o mapa de decisões: para cada entrada `scope_decision`, registre `target_id → scope`
+2. Filtre as entradas do tipo `new_domain` e `new_source` que **não possuem** `scope_decision` correspondente (scope pendente)
+3. Se **não houver** entradas pendentes → exibir `✅ Grounding: 0 domínios pendentes de curação` e pular para o Passo 6 (Commit de Sincronização).
+4. Se houver entradas pendentes → exibir tabela de curadoria:
+
+```markdown
+## 🔍 Novos Domínios de Grounding — Curadoria Necessária
+
+| # | Tipo | Domínio / Fonte | Motivo | Máquina | Data |
+|---|---|---|---|---|---|
+| 1 | Novo domínio | `nome_dominio` — fonte1, fonte2 | [reason] | [machine_id] | [timestamp] |
+| 2 | Nova fonte | `dominio_existente` — nova_fonte | [reason] | [machine_id] | [timestamp] |
+```
+
+5. **Rodada A** — usar `ask_question` (is_multi_select: true):
+   > "Quais domínios/fontes devem ser promovidos para o **kit global** (todos os projetos)?"
+   > Opções: lista de todos os candidatos pendentes (formato: "Domínio: X — Fonte: Y")
+   > Não selecionados em A passam para Rodada B
+
+6. **Rodada B** — usar `ask_question` (is_multi_select: true) com o restante:
+   > "Quais devem ficar apenas **locais** (somente este projeto)?"
+   > Selecionados → scope: "local" | Não selecionados → scope: "rejected"
+
+7. Para cada decisão, fazer **append** em `.vitalia/memory/session/data/grounding-domains.jsonl`, preenchendo as variáveis de acordo com o `grounding_domain_schema.json`:
+   ```bash
+   echo '{"type":"scope_decision","target_id":"<id>","scope":"<global|local|rejected>","decided_by":"<machine_id>","timestamp":"<DD-MM-YYYY HH:MM(GMT-04:00)>"}' >> .vitalia/memory/session/data/grounding-domains.jsonl
+   ```
+
+8. Para entradas que receberam o scope `"global"`:
+   - Exibir o diff do que seria adicionado à fonte da verdade do kit: `{{VITALIA_KIT_DIR}}/profiles/grounding_domains.yaml`.
+   - Peça confirmação explícita ao usuário para alterar essa fonte da verdade (pois ela afeta todos os projetos).
+   - Se aprovado, modifique o `{{VITALIA_KIT_DIR}}/profiles/grounding_domains.yaml` inserindo a fonte na seção correta.
+
+9. Após todas as decisões, invocar novamente o motor de contexto para regenerar a VIEW `grounding-domains-local.yaml`:
+    ```bash
+    python3 {{VITALIA_KIT_DIR}}/src/vitalia_context_engine.py --action consolidate
+    ```
+
+### Passo 6: Commit de Sincronização
+Obtenha seu machine_id (via hostname) e faça:
+```bash
+git -C .vitalia/memory/session add .
+git -C .vitalia/memory/session commit -m "chore: session consolidated by local"
+```
+
+### Passo 7: Push
+Execute `git -C .vitalia/memory/session push origin main`.
+Em caso de falha de rede/autenticação, exiba mensagem de erro (HITL) sugerindo que o usuário rode o comando manualmente.
+
+### Passo 8: Confirmação
+Conclua exibindo: `✅ Contexto sincronizado na nuvem` (ou estado pendente, se houve falha no push).
+"""

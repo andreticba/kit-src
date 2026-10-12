@@ -1,0 +1,51 @@
+
+# Vitalia Agent Kit — contexto de sessão da IA (repo Git separado)
+# Ignorar contexto de sessão da IA (repósitorio aninhado isolado)
+.agents/*
+.gemini/*
+.specify/*
+.vitalia/*
+.DS_Store
+.docs/*
+/logs
+/node_modules
+kit-legado/*
+# Variáveis de Ambiente e Segredos
+.env
+.env.*
+
+# Ignorar arquivos Python compilados e de cache
+.venv
+venv
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+/instance
+
+# Ignorar relatórios de análise estática de código
+/reports
+/.venv_check
+
+# Segredos e tokens OAuth — nunca versionar
+token.json
+credentials.json
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+.vitalia/config.yml
+.vitalia/memory/session/
+.vitalia/memory/data_storage/
+vitalia-01/*
+whatsapp-gateway/*
+agente-local/*
+ai-control-transition/*
+temp.md
+
+# Conversa com IA
+AI_AGENT_CONVERSATION.md

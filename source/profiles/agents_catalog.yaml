@@ -1,0 +1,133 @@
+# agents_catalog.yaml | Atualizado em: 08-09-2026 17:40:17(GMT-04:00)
+# ~/.vitalia/kit/profiles/agents_catalog.yaml
+# Atualizado em: 08-09-2026 15:36(GMT-04:00)
+
+schema_type:    "agents_catalog"
+schema_version: "0.1.0"
+description:    "Catálogo completo dos agentes especialistas do ecossistema Vitalia SDD"
+
+agents:
+  - id:          "design-thinking"
+    name:        "Design Thinking Facilitator"
+    emoji:       "🎨"
+    gates:       ["route", "session-start", "session-end"]
+    command:     "/vitalia-design-thinking"
+    role:        "Facilitador de workshops, PRDs e descoberta humana"
+    model_hint:  "lightweight"   # pode usar qwen3:4b no notebook
+    sub_agents:
+      - "persona-builder"
+      - "hmw-generator"
+      - "csd-manager"
+      - "prd-synthesizer"
+    data_inputs:
+      - type: "none"             # não precisa de arquivos de entrada para começar
+    data_outputs:
+      - type:    "artifact"
+        path:    "docs/design/"
+        format:  "markdown"
+    queue_key:   "vitalia:agents:design-thinking"   # Redis key para fila de tarefas
+    description: |
+      Conduz workshops de Design Thinking (Duplo Diamante), elabora PRDs executivos,
+      mapas de empatia, declarações HMW e personas. Serve workshops acadêmicos na UFMT
+      e modelagem de produtos para o ecossistema Vitalia.
+
+  - id:          "literature-curator"
+    name:        "Literature Curator"
+    emoji:       "📚"
+    gates:       ["route", "session-start", "session-end"]
+    command:     "/vitalia-literature-curator"
+    role:        "Guardião do acervo e ingestão científica"
+    model_hint:  "lightweight"
+    sub_agents:
+      - "ncbi-fetcher"
+      - "openalex-downloader"
+      - "docling-converter"
+      - "prisma-auditor"
+    data_inputs:
+      - type:    "directory"
+        path:    ".vitalia/memory/data_storage/amostra/"
+        watch:   true            # monitora novos PDFs via CAFe/UFMT
+      - type:    "directory"
+        path:    ".vitalia/memory/data_storage/papers/"
+    data_outputs:
+      - type:    "pgvector"
+        description: "Chunks indexados semanticamente"
+      - type:    "directory"
+        path:    ".vitalia/memory/data_storage/fichamentos/"
+        format:  "markdown"
+    queue_key:   "vitalia:agents:literature-curator"
+    description: |
+      Coleta, baixa, extrai texto completo e indexa literatura científica via EuropePMC
+      (XML), OpenAlex (PDF OA), e Docling da IBM para Markdown estruturado.
+      Mantém rastreabilidade PRISMA 2020 e fila de download CAFe/CAPES.
+
+  - id:          "visual-creator"
+    name:        "Visual Creator"
+    emoji:       "🖼️"
+    gates:       ["route", "session-end"]
+    command:     "/vitalia-visual-creator"
+    role:        "Geração visual híbrida e prototipação"
+    model_hint:  "heavy"         # Gemini 2.5 Flash Image (cloud) ou Diffusers (local)
+    sub_agents:
+      - "prompt-visual-optimizer"
+      - "image-backend-router"
+      - "artifact-embedder"
+    data_inputs:
+      - type:    "description"   # recebe prompt textual
+    data_outputs:
+      - type:    "directory"
+        path:    ".vitalia/memory/data_storage/images/"
+        format:  "webp|png"
+    backends:
+      - name:    "gemini-flash"
+        model:   "gemini-2.5-flash-image"
+        privacy: "cloud"         # dados vão para Google
+      - name:    "local-diffusers"
+        model:   "stable-diffusion-xl"
+        privacy: "local"         # LGPD compliant, offline
+    queue_key:   "vitalia:agents:visual-creator"
+    description: |
+      Gera personas fotorrealistas, wireframes de Design Thinking e infográficos clínicos.
+      Roteia automaticamente entre backend Gemini (qualidade) e Diffusers local (privacidade).
+
+  - id:          "medical-gate"
+    name:        "Medical Gate"
+    emoji:       "🩺"
+    gates:       ["route", "session-start", "session-end", "medical_gate"]
+    command:     "/vitalia-medical-gate"
+    role:        "Avaliação de risco clínico e HITL médico"
+    model_hint:  "lightweight"
+    sub_agents: []
+    data_inputs:
+      - type:    "spec_content"  # recebe conteúdo de spec.md para avaliar risco
+    data_outputs:
+      - type:    "risk_report"
+        format:  "markdown"
+        status:  "DRAFT"         # sempre DRAFT até aprovação humana
+    queue_key:   "vitalia:agents:medical-gate"
+    hitl_required: true          # nunca executa sem aprovação humana explícita
+    description: |
+      Avalia risco clínico de specs e implementações, verifica faixas de referência
+      de biomarcadores e garante friction-for-safety em decisões médicas.
+      Todo output é DRAFT até aprovação de profissional de saúde.
+
+  - id:          "architect"
+    name:        "Vitalia Architect"
+    emoji:       "🏛️"
+    gates:       ["route", "brainstorming", "session-end"]
+    command:     "/vitalia-architect"
+    role:        "Transição de consensos para o pipeline SDD formal"
+    model_hint:  "lightweight"
+    sub_agents: []
+    data_inputs:
+      - type:    "brainstorming_artifact"
+        path:    "docs/brainstorming_*.md"
+    data_outputs:
+      - type:    "spec_draft"
+        path:    "specs/"
+        format:  "markdown"
+    queue_key:   "vitalia:agents:architect"
+    description: |
+      Converte consensos do brainstorming e Design Thinking em specs formais do pipeline
+      SDD (spec-specify → spec-plan → spec-tasks → spec-implement). Cria ADRs e
+      documenta decisões arquiteturais.

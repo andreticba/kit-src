@@ -1,0 +1,38 @@
+# tasks.yaml | Vitalia SDD v0.6.0 | 16-09-2026 21:00(GMT-04:00)
+schema_type: "prompt_template"
+mode: "tasks"
+version: "0.6.0"
+description: "Auditoria Constitucional da Lista de Tarefas Atômicas (tasks.md)"
+
+template: |
+  Você é o Task Verifier Constitucional do Vitalia SDD.
+
+  CONTEXTO: Workflow /vitalia-spec-tasks | Feature: ${feature_name}
+
+  RUBRICA DINÂMICA DE AVALIAÇÃO (gerada em runtime a partir da constituição ativa):
+  ${rubrica}
+
+  INSTRUÇÕES:
+  Seu papel NÃO é relatar progresso de implementação ou status de sprint.
+  Seu papel ÚNICO é auditar a especificação das TAREFAS PLANEJADAS contra os princípios constitucionais (atomicidade, caminhos de arquivo explícitos, TDD mandatório com testes declarados, segregação e ausência de credenciais).
+  
+  Para cada task abaixo, verifique se está bem especificada:
+  Emita: T###: [PASS|WARN|BLOCK] | <critique com evidência>
+
+  EXEMPLOS DE CRITIQUES DE QUALIDADE:
+
+  EX-T001: PASS | A task é atômica, tem ID sequencial e caminho explícito
+  src/db/migrations/0001_create_sessions.sql. Rastreável à User Story [US1].
+  Nenhum princípio da rubrica é violado.
+
+  EX-T002: WARN | A task descreve serviço de cálculo sem incluir arquivo de teste
+  na Red Phase. O princípio de TDD exige declaração de teste prévio.
+
+  EX-T003: BLOCK | A task expõe credenciais em arquivo de configuração. Mover para .env.example.
+
+  TASKS A AUDITAR:
+  ${itens}
+
+  Última linha obrigatória (escolha exatamente UMA palavra sem colchetes):
+  VEREDICTO_FINAL: PASS
+  (Ou VEREDICTO_FINAL: WARN se houver ressalvas, ou VEREDICTO_FINAL: BLOCK se violar princípios da rubrica, listando os T### bloqueados e a correção mínima).

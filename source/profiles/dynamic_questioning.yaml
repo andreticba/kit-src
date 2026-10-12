@@ -1,0 +1,250 @@
+# dynamic_questioning.yaml | Atualizado em: 08-09-2026 17:40:17(GMT-04:00)
+schema_type: "dynamic_questioning"
+schema_version: "0.6.0"
+
+description: >
+  Registry de perguntas socráticas para o workflow de brainstorming.
+  Cada decision_point revela consequências arquiteturais (custo, tempo, complexidade).
+  Saúde humana e proteção de dados têm PRIORIDADE P0 absoluta sobre os demais domínios.
+  Consultar via RAG passivo antes de formular perguntas ao usuário.
+  Aplicar defaults condicionais com base no resultado de scan_environment.py.
+
+domains:
+
+  # ═══════════════════════════════════════════════
+  # P0 CRITICAL — Saúde e Proteção de Dados primeiro
+  # ═══════════════════════════════════════════════
+
+  protecao_de_dados_e_privacidade:
+    description: "Regulações de privacidade: LGPD, GDPR, HIPAA, GLBA e soberania de dados."
+    priority: "🔴 P0 CRITICAL"
+    triggers: ["dado pessoal", "dado de saúde", "PHI", "PII", "privacidade", "LGPD", "GDPR", "HIPAA", "GLBA", "consentimento"]
+    decision_points:
+      - point: "Soberania e Localização dos Dados"
+        question: "Os dados processados incluem dados pessoais ou de saúde? Onde serão armazenados e sob qual regulação?"
+        impact: "Define infraestrutura, jurisdição legal e potencial de multas. LGPD: 2% faturamento. GDPR: 20M EUR. HIPAA: USD 1.9M/ano."
+        options:
+          - name: "Infraestrutura própria / on-premise"
+            pros: "Soberania total, dado não sai da jurisdição."
+            cons: "Custo operacional alto, equipe de segurança interna necessária."
+            best_for: "Dados de saúde sensíveis, requisito HIPAA/LGPD estrito."
+          - name: "Nuvem com criptografia gerenciada pelo cliente (BYOK)"
+            pros: "Escalabilidade, compliance certificado (SOC 2, ISO 27001)."
+            cons: "Dado trafega por infraestrutura de terceiro."
+            best_for: "Projetos que precisam de agilidade e escala."
+          - name: "SaaS terceirizado sem controle de chave"
+            pros: "Rapidez de implementação."
+            cons: "Risco regulatório alto — exige BAA (HIPAA) ou DPA (GDPR) formal."
+            best_for: "Apenas projetos sem dados sensíveis, após análise jurídica."
+        default:
+          static: "Infraestrutura própria ou BYOK para garantir soberania."
+          note: "Dados de saúde nunca vão para SaaS sem DPA/BAA formal assinado."
+
+      - point: "Modelo de Consentimento"
+        question: "Como o consentimento do titular será coletado, registrado e revogado?"
+        impact: "Exigência legal em todas as regulações. Ausência invalida o processamento."
+        options:
+          - name: "Consentimento explícito com registro auditável (opt-in)"
+            pros: "Compliance total, defensável juridicamente."
+            cons: "Maior fricção no onboarding."
+            best_for: "Padrão obrigatório para dados de saúde."
+          - name: "Consentimento implícito / legítimo interesse"
+            pros: "Menor fricção."
+            cons: "Não aplicável para dados de saúde — categorias especiais exigem opt-in."
+            best_for: "Dados não-sensíveis com base legal alternativa."
+        default:
+          static: "Consentimento explícito opt-in com registro imutável e mecanismo de revogação."
+
+  autenticacao_e_identidade:
+    description: "Estratégia de gestão de identidade, sessões e controle de acesso."
+    priority: "🔴 P0 CRITICAL"
+    triggers: ["login", "autenticação", "auth", "usuário", "sessão", "JWT", "OAuth", "permissão", "RBAC"]
+    decision_points:
+      - point: "Estratégia de Gestão de Identidade"
+        question: "Como os usuários se autenticam e as sessões são gerenciadas?"
+        impact: "Define soberania dos dados de identidade, superfície de ataque e compliance."
+        options:
+          - name: "Sistema Próprio / Custom"
+            pros: "Controle absoluto, dado de identidade permanece na infraestrutura própria."
+            cons: "Requer implementação de hashing, MFA, recuperação de senha, auditoria."
+            best_for: "Projetos HIPAA/LGPD com exigência de soberania total."
+          - name: "Identity as a Service (IDaaS)"
+            pros: "MFA out-of-the-box, padrões de segurança certificados."
+            cons: "Dados trafegam em servidores de terceiros. Exige BAA para HIPAA."
+            best_for: "MVPs sem dados de saúde ou após validação jurídica."
+        default:
+          static: "Sistema Próprio / Custom para projetos com dados de saúde."
+          conditional:
+            if_environment_has: "auth0_configured"
+            then_override: "IDaaS já configurado — validar existência de BAA para dados de saúde."
+
+      - point: "Controle de Acesso (RBAC vs ABAC)"
+        question: "O acesso é baseado em papel (role) ou em atributos contextuais?"
+        impact: "RBAC simples é insuficiente para sistemas de saúde."
+        options:
+          - name: "RBAC simples (admin/user/guest)"
+            pros: "Fácil de implementar."
+            cons: "Granularidade insuficiente para dados de saúde. Risco de vazamento."
+            best_for: "Sistemas sem dados sensíveis."
+          - name: "ABAC com filtro por user_id + organization_id"
+            pros: "Isolamento correto — usuário só acessa seus próprios dados."
+            cons: "Maior complexidade de implementação e testes."
+            best_for: "Qualquer sistema com dados de saúde ou multi-tenant."
+        default:
+          static: "ABAC com filtro mandatório por user_id + organization_id em toda query."
+
+  seguranca_de_api:
+    description: "Proteção de endpoints, validação de input e proteção contra abusos."
+    priority: "🔴 P0 CRITICAL"
+    triggers: ["API", "endpoint", "rota", "rate limit", "token", "chave de API"]
+    decision_points:
+      - point: "Autenticação de Endpoints"
+        question: "Como os clientes da API se identificam? Há endpoints públicos com dados sensíveis?"
+        impact: "Endpoints públicos com dados de saúde são violação imediata de HIPAA/LGPD."
+        options:
+          - name: "JWT com expiração curta + refresh token"
+            pros: "Stateless, escalável, padrão de mercado."
+            cons: "Exige rotação de chaves e blacklist de tokens revogados."
+            best_for: "APIs de usuário final."
+          - name: "API Key com escopo e rate limit"
+            pros: "Simples para integrações B2B."
+            cons: "Não revogável instantaneamente sem estado central."
+            best_for: "APIs de serviço a serviço."
+        default:
+          static: "JWT com expiração curta. Nenhum endpoint de dado de saúde sem autenticação."
+
+  # ═══════════════════════════════════════════════
+  # HIGH-LEVERAGE — Impacto arquitetural significativo
+  # ═══════════════════════════════════════════════
+
+  comunicacao_em_tempo_real:
+    description: "Sincronização de estado, notificações e eventos em tempo real."
+    priority: "🟡 HIGH-LEVERAGE"
+    triggers: ["tempo real", "notificação", "WebSocket", "SSE", "live", "push", "evento", "streaming"]
+    decision_points:
+      - point: "Estratégia de Sincronização de Estado"
+        question: "O sistema exige atualizações instantâneas empurradas pelo servidor (push)?"
+        impact: "WebSockets introduzem complexidade. Escalamento exige broker externo acima de ~500 conexões."
+        options:
+          - name: "Conexões Persistentes (WebSockets)"
+            pros: "Latência mínima (<100ms), bidirecional eficiente."
+            cons: "Custo alto de escalonamento — exige Redis Pub/Sub em alta carga."
+            best_for: "Chat, dashboards clínicos em tempo real, alertas críticos."
+          - name: "Server-Sent Events (SSE)"
+            pros: "Unidirecional simples, reconexão automática nativa."
+            cons: "Não suporta mensagens do cliente para o servidor."
+            best_for: "Feeds de notificação, dashboards read-only."
+          - name: "Polling Curto"
+            pros: "Simplicidade arquitetural, sem infraestrutura adicional."
+            cons: "Latência de 2-30s, sobrecarga de requests em escala."
+            best_for: "MVP, atualizações não-críticas, menos de 100 usuários concorrentes."
+        default:
+          static: "Polling Curto no MVP — diferir WebSockets para quando a métrica justificar."
+          conditional:
+            if_environment_has: "redis"
+            then_override: "WebSockets + Redis Pub/Sub — Redis já detectado na infra, caminho mais curto."
+            source: "scan_environment.py"
+
+  processamento_assincrono:
+    description: "Desacoplamento de tarefas pesadas via filas e workers."
+    priority: "🟡 HIGH-LEVERAGE"
+    triggers: ["background", "tarefa pesada", "fila", "worker", "celery", "job", "processamento assíncrono"]
+    decision_points:
+      - point: "Desacoplamento de Tarefas de Longa Duração"
+        question: "Existem operações que bloqueiam a resposta ao usuário e podem ser feitas em background?"
+        impact: "Tarefas síncronas longas causam timeout e UX degradada."
+        options:
+          - name: "Execução Síncrona"
+            pros: "Sem infraestrutura adicional, simples de debugar."
+            cons: "Timeouts em operações longas (>30s), UX bloqueante."
+            best_for: "Operações <5s, MVPs sem operações pesadas."
+          - name: "Filas de Mensagens + Workers"
+            pros: "Alta resiliência, retry automático, UX não-bloqueante."
+            cons: "Infraestrutura adicional, monitoramento de workers."
+            best_for: "Processamento de exames, relatórios, e-mails em escala."
+        default:
+          static: "Execução síncrona até que métricas justifiquem filas."
+          conditional:
+            if_environment_has: "celery"
+            then_override: "Celery já configurado — usar filas para todas as operações acima de 5s."
+            source: "scan_environment.py"
+
+  arquitetura_de_dados_e_estado:
+    description: "Modelo de persistência, consistência e estrutura relacional."
+    priority: "🟡 HIGH-LEVERAGE"
+    triggers: ["banco de dados", "schema", "migração", "consistência", "SQL", "NoSQL", "transação", "ACID"]
+    decision_points:
+      - point: "Modelo de Consistência de Dados"
+        question: "Qual o nível de integridade transacional necessário? Os dados têm relacionamentos complexos?"
+        impact: "Afeta migrações futuras, integridade de dados de saúde e capacidade de auditoria."
+        options:
+          - name: "Esquema Rígido Transacional (SQL/ACID)"
+            pros: "Alta integridade, JOINs complexos, auditoria com triggers."
+            cons: "Migrações custosas, escalabilidade horizontal exige sharding."
+            best_for: "Dados de saúde ou financeiros — qualquer dado com exigência de rastreabilidade."
+          - name: "Esquema Flexível (NoSQL/Documentos)"
+            pros: "Alta velocidade de iteração, escalabilidade horizontal nativa."
+            cons: "Consistência eventual, auditoria complexa."
+            best_for: "Logs, eventos, dados não-relacionais sem requisito clínico."
+        default:
+          static: "SQL/ACID — padrão obrigatório para dados de saúde."
+
+  machine_learning_e_ia:
+    description: "Integração de modelos LLM, ML e inferência em produção."
+    priority: "🟡 HIGH-LEVERAGE"
+    triggers: ["LLM", "IA", "ML", "modelo", "inferência", "prompt", "embedding", "RAG", "Ollama", "GPT"]
+    decision_points:
+      - point: "Estratégia de Inferência e Privacidade"
+        question: "Os dados enviados ao modelo incluem informações pessoais ou de saúde?"
+        impact: "Enviar PHI/PII para APIs de terceiros sem BAA/DPA é violação de HIPAA/LGPD."
+        options:
+          - name: "Modelo local (Ollama, llama.cpp, vLLM)"
+            pros: "Dados nunca saem da infraestrutura. Custo zero por token. Compliance simplificado."
+            cons: "Custo de hardware (GPU), manutenção do modelo."
+            best_for: "Dados de saúde, projetos com soberania total."
+          - name: "API de terceiro (OpenAI, Anthropic, Google)"
+            pros: "Alta capacidade, modelos de ponta."
+            cons: "Dado trafega para terceiro — BAA obrigatório para HIPAA."
+            best_for: "Dados não-sensíveis ou após anonimização verificada."
+        default:
+          static: "Modelo local para dados de saúde. API de terceiro apenas com dado anonimizado."
+
+  iot_e_dispositivos_edge:
+    description: "Integração com wearables, sensores e dispositivos médicos."
+    priority: "🟠 MEDIUM"
+    triggers: ["IoT", "wearable", "sensor", "dispositivo", "edge", "MQTT", "BLE", "Bluetooth"]
+    decision_points:
+      - point: "Protocolo de Comunicação e Segurança"
+        question: "Como os dispositivos se conectam? Os dados são transmitidos de forma criptografada?"
+        impact: "Dados de saúde em trânsito não-criptografado violam HIPAA. Dispositivos IoT são superfície de ataque crítica."
+        options:
+          - name: "MQTT com TLS + autenticação por certificado"
+            pros: "Leve, eficiente em banda, padrão de mercado para IoT."
+            cons: "Infraestrutura de broker MQTT necessária."
+            best_for: "Sensores de baixa potência, wearables médicos."
+          - name: "HTTPS/REST direto"
+            pros: "Simples, sem infraestrutura adicional."
+            cons: "Overhead maior, inadequado para dispositivos de ultra-baixa potência."
+            best_for: "Dispositivos com conectividade estável e energia suficiente."
+        default:
+          static: "MQTT com TLS obrigatório. Certificado por dispositivo para rastreabilidade."
+
+  observabilidade_e_auditoria:
+    description: "Logging, rastreamento e auditoria de sistemas críticos."
+    priority: "🟠 MEDIUM"
+    triggers: ["log", "monitoramento", "observabilidade", "auditoria", "trace", "métricas", "alertas"]
+    decision_points:
+      - point: "Estratégia de Logging para Dados Sensíveis"
+        question: "Os logs podem conter dados de saúde ou PII? Como garantir que não apareçam em texto puro?"
+        impact: "Logs com PHI em texto puro são violação de HIPAA/LGPD mesmo em sistemas internos."
+        options:
+          - name: "Structured logging com sanitização (IDs apenas, sem conteúdo)"
+            pros: "Compliance nativo, rastreabilidade sem risco de exposição."
+            cons: "Debugging mais complexo — requer correlação por ID."
+            best_for: "Padrão obrigatório para qualquer sistema com dados de saúde."
+          - name: "Logging completo com controle de acesso restrito"
+            pros: "Mais fácil de debugar."
+            cons: "Risco de exposição acidental em dashboards."
+            best_for: "Apenas se acesso aos logs puder ser auditado e restringido."
+        default:
+          static: "Structured logging com IDs apenas — conteúdo de saúde NUNCA em logs."

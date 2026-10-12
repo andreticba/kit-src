@@ -1,0 +1,95 @@
+# grounding_domains.yaml | Vitalia SDD v0.6.0 | 07-09-2026 18:32(GMT-04:00)
+# Dicionário canônico de domínios que exigem verificação externa obrigatória (P03).
+# Lido por: guardian_context.py via GuardianContextV2 (schema_type: grounding_domains)
+# Geração de view read-only: futuro — motor de contexto em .vitalia/memory/session/
+# NÃO edite grounding-domains-local.yaml — é artefato gerado, não fonte.
+
+schema_type: "grounding_domains"
+schema_version: "0.6.0"
+
+# ─── DOMÍNIOS DE VERIFICAÇÃO OBRIGATÓRIA ──────────────────────────────────────
+# trigger: "blocking" → aborta se não houver rastro de pesquisa
+# trigger: "warning"  → emite aviso, não bloqueia
+domains:
+  - id: "llm_models"
+    name: "Modelos LLM"
+    description: "Nomes de modelos, versões, benchmarks, preços e janelas de contexto"
+    scope: "global"
+    trigger: "blocking"
+    authoritative_sources:
+      - "https://ollama.com/library"
+      - "https://openrouter.ai/models"
+      - "https://artificialanalysis.ai"
+
+  - id: "python_packages"
+    name: "Pacotes Python"
+    description: "Versões, changelogs, compatibilidade e breaking changes no PyPI"
+    scope: "global"
+    trigger: "blocking"
+    authoritative_sources:
+      - "https://pypi.org"
+      - "https://github.com/advisories"
+
+  - id: "external_apis"
+    name: "APIs Externas"
+    description: "Endpoints, contratos, autenticação e limites de APIs externas"
+    scope: "global"
+    trigger: "blocking"
+    authoritative_sources:
+      - "verificar na documentação oficial da API"
+
+  - id: "security_practices"
+    name: "Segurança e CVEs"
+    description: "Vulnerabilidades, CVEs, OWASP Top 10 LLM 2025 e práticas de segurança"
+    scope: "global"
+    trigger: "blocking"
+    authoritative_sources:
+      - "https://owasp.org/www-project-top-10-for-large-language-model-applications"
+      - "https://nvd.nist.gov"
+
+  - id: "regulations"
+    name: "Regulações e Compliance"
+    description: "LGPD, HIPAA, GDPR, EU AI Act e normas regulatórias vigentes"
+    scope: "global"
+    trigger: "blocking"
+    authoritative_sources:
+      - "https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/lei/l13709.htm"
+      - "https://artificialintelligenceact.eu"
+
+  - id: "cloud_services"
+    name: "Serviços Cloud"
+    description: "Preços, SLAs, regiões disponíveis e limites de serviços cloud"
+    scope: "global"
+    trigger: "warning"
+    authoritative_sources:
+      - "verificar na calculadora de preços do provedor"
+
+  - id: "scientific_claims"
+    name: "Afirmações Científicas"
+    description: "Artigos, dosagens, valores de referência clínica e protocolos médicos"
+    scope: "global"
+    trigger: "blocking"
+    authoritative_sources:
+      - "https://pubmed.ncbi.nlm.nih.gov"
+      - "https://europepmc.org"
+      - "https://www.cochranelibrary.com"
+
+  - id: "clinical_safety"
+    name: "Segurança Clínica"
+    description: "Ranges de biomarcadores, dosagens seguras, contraindações e protocolos HITL"
+    scope: "global"
+    trigger: "blocking"
+    constitution_principles: ["P09", "P14"]
+    authoritative_sources:
+      - "revisão por profissional de saúde habilitado (P09 — HITL obrigatório)"
+
+  - id: "hardware_specs"
+    name: "Especificações de Hardware"
+    description: "VRAM disponível, capacidade CUDA, suporte Vulkan e limites de hardware"
+    scope: "local"
+    trigger: "warning"
+    constitution_principles: ["P11"]
+    authoritative_sources:
+      - "nvidia-smi"
+      - "/proc/meminfo"
+      - "hardware_discovery.py"

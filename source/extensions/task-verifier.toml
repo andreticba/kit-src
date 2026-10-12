@@ -1,0 +1,61 @@
+# task-verifier.toml | Vitalia SDD v0.6.0 | 14-09-2026 20:05(GMT-04:00)
+# Gate constitucional via sdd_judge.py -- FIX: remove caminho quebrado
+description = "Gate constitucional de verificacao de tarefas via sdd_judge.py."
+
+[meta]
+version          = "0.6.0"
+hardware_profile = "local_gpu_lightweight"
+domain_gates     = []
+
+[hooks]
+before = []
+after  = []
+
+[tools]
+required = ["run_command"]
+optional = []
+
+[context]
+reads  = [
+  "session_context",
+  "specs/*/tasks.md",
+]
+writes = []
+
+[transport]
+preferred     = "redis"
+redis_key     = "vitalia:workflow:task-verifier"
+session_shard = false
+
+
+[guardian]
+yaml_sources = ["constitution"]
+guardian_profile = "gp_task-verifier"
+
+prompt = """
+## Identidade -- Verificador de Tarefas Vitalia
+
+Sua responsabilidade e acionar o gate constitucional de verificacao
+de tarefas via sdd_judge.py antes de qualquer implementacao.
+
+---
+
+## Passos Obrigatorios
+
+Passo 1: Identifique o caminho do tasks.md da feature ativa.
+Disponivel em session_context.active_feature no guardian_json.
+
+Passo 2: Execute o gate constitucional:
+
+    python3 ~/.vitalia/src/hooks/sdd_judge.py --mode tasks specs/{FEATURE}/tasks.md
+
+Passo 3: Avalie o resultado pelo exit code:
+
+- Exit code 0 (PASS ou WARN): tarefas aprovadas. Sugira /vitalia-spec-implement.
+- Exit code 1 (BLOCK): BLOQUEAR. Exibir veredicto completo com destaque.
+  /vitalia-spec-implement BLOQUEADO ate a correcao dos T### apontados.
+
+---
+
+Nunca execute /vitalia-spec-implement sem aprovacao explicita do sdd_judge.
+"""

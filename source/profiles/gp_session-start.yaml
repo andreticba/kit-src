@@ -1,0 +1,24 @@
+# gp_session-start.yaml | Vitalia SDD v0.6.0 | 07-09-2026 14:28(GMT-04:00)
+# Guardian Profile para o workflow session-start.
+# Objetivo: orientação mínima de sessão — baixo custo de tokens.
+# Domínios ativos: GOVERNANCE (P01), INFRASTRUCTURE (P04), HARDWARE_AGNOSTICISM (P11)
+
+schema_type: "guardian_profile"
+schema_version: "0.6.0"
+workflow: "session-start"
+
+tokens:
+  total_budget: 350
+  source_weights:
+    constitution: 0.7
+    routing_table: 0.3
+
+constitution:
+  domains: ["GOVERNANCE", "INFRASTRUCTURE", "HARDWARE_AGNOSTICISM"]
+  severity_filter: ["BLOCKING"]
+  principles_include: ["P01", "P04", "P11"]
+
+session_context:
+  include_p0: true
+  include_active_feature: true
+  include_agents_queue: false

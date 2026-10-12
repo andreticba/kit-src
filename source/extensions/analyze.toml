@@ -1,0 +1,200 @@
+description = "Análise read-only de consistência entre spec.md, plan.md e tasks.md. CRITICAL bloqueia /spec-implement. Inclui gates para domínios de saúde e educação."
+
+[meta]
+version          = "0.3.0"
+hardware_profile = "lightweight"
+domain_gates     = []
+
+[hooks]
+before = []
+after  = []
+
+[tools]
+required = ["read_file"]
+optional = []
+
+[context]
+reads  = [
+  ".vitalia/feature.json",
+  "specs/*/spec.md",
+  "specs/*/plan.md",
+  "specs/*/tasks.md"
+]
+writes = []   # read-only — não modifica nenhum arquivo
+
+[variables]
+input  = ["args", "feature_directory"]
+output = ["analyze_status", "critical_count", "high_count"]
+
+[transport]
+preferred     = "redis"
+redis_key     = "vitalia:workflow:analyze"
+file_path     = ".vitalia/pipeline.json"
+session_shard = false   # análise é ephemeral, não vai para shard
+
+
+[guardian]
+yaml_sources = ["constitution"]
+
+  [guardian.gate]
+  name            = "analyze"
+  domains         = ["GOVERNANCE", "GROUNDING"]
+  severity_filter = ["BLOCKING", "WARNING"]
+  token_budget    = 280
+
+    [guardian.gate.source_weights]
+    constitution = 1.0
+
+prompt = """
+## User Input
+
+```text
+{{args}}
+```
+
+---
+
+## Propósito
+
+Executar análise **read-only** de consistência entre os três artefatos core
+(`spec.md`, `plan.md`, `tasks.md`) após geração das tasks e antes da
+implementação. Produz relatório de findings com severidade.
+
+> **Este comando nunca modifica nenhum arquivo.**
+
+---
+
+## Comportamento
+
+### Passo 1: Verificar pré-condições
+
+Ler `.vitalia/feature.json` → verificar existência de:
+- `spec.md` → obrigatório
+- `plan.md` → obrigatório
+- `tasks.md` → obrigatório (se ausente: instruir `/vitalia-spec-tasks` primeiro)
+
+A constituição será injetada automaticamente via guardian_context.
+
+### Passo 2: Construir modelos semânticos (uso interno)
+
+1. **Inventário de requisitos**: para cada `FR-xxx` e `SC-xxx`, ID + descrição
+2. **Inventário de histórias**: para cada US, prioridade + Acceptance Scenarios
+3. **Mapeamento de cobertura**: para cada task, qual FR ou US ela serve
+4. **Regras da constituição**: extrair todos os MUST/SHOULD
+
+### Passo 3: Passes de detecção (6 análises)
+
+#### A. Duplicações
+- FRs com conteúdo semanticamente equivalente
+- User Stories que descrevem a mesma jornada duplicada
+
+#### B. Ambiguidades
+- SC-xxx sem métrica numérica ("rápido", "seguro", "robusto")
+- FRs com verbos mas sem objeto mensurável
+- User Stories sem `**Independent Test**` definido
+
+#### C. Subespecificação
+- FRs na spec sem nenhuma task correspondente
+- User Stories sem phase dedicada em tasks.md
+- Tasks que referenciam arquivos não mencionados em plan.md
+
+#### D. Violações da Constituição
+- Qualquer elemento do plan.md ou tasks.md que contradiz MUST da constituição
+- Medical Gate: se domínio = saúde e medical-gate não foi executado → CRITICAL
+- Ausência de seções obrigatórias pela constituição
+
+#### E. Gaps de Cobertura
+- FRs com zero tasks associadas → CRITICAL
+- Tasks sem nenhum FR ou US mapeado (tarefa órfã)
+- SCs que exigem trabalho buildável sem task correspondente
+
+#### F. Inconsistências de Terminologia
+- Mesmo conceito nomeado diferente entre spec, plan e tasks
+- Entidades presentes no plan mas ausentes na spec (ou vice-versa)
+- Ordenamento contraditório de tasks
+
+### Passo 4: Atribuir severidade
+
+| Nível | Critério |
+|---|---|
+| **CRITICAL** | Viola MUST da constituição; FR com zero cobertura; tasks.md ausente |
+| **HIGH** | FR duplicado; SC não-mensurável; US sem Independent Test; task órfã |
+| **MEDIUM** | Drift de terminologia; SC sem task de performance/segurança |
+| **LOW** | Melhorias de redação; redundâncias menores |
+
+### Passo 5: Produzir relatório (read-only)
+
+```markdown
+## Specification Analysis Report — [FEATURE]
+
+| ID | Categoria | Severidade | Localização | Resumo | Recomendação |
+|----|-----------|------------|-------------|--------|--------------|
+| A1 | Duplication | HIGH | spec.md:FR-002,FR-007 | Mesmo requisito em dois FRs | Consolidar em FR-002 |
+| C1 | Underspec | CRITICAL | spec.md:FR-005 | Nenhuma task cobre FR-005 | Adicionar task em Phase 3 |
+| F1 | Inconsistency | MEDIUM | spec+plan | "Figurinha" vs "Sticker" | Normalizar terminologia |
+
+### Tabela de Cobertura de Requisitos
+
+| Requisito | Tem Task? | Task IDs | Status |
+|-----------|-----------|----------|--------|
+| FR-001    | ✅        | T005, T006 | |
+| FR-003    | ❌        | — | CRITICAL |
+
+### Violações da Constituição
+[lista ou "Nenhuma violação detectada ✅"]
+
+### Tasks Órfãs
+[lista de task IDs sem rastreabilidade]
+
+### Métricas
+
+- Total de requisitos (FR + SC): N
+- Total de tasks: N
+- Cobertura: N%
+- Issues CRITICAL: N | HIGH: N | MEDIUM: N | LOW: N
+```
+
+### Passo 6: Gate de próxima ação
+
+**Se CRITICAL:**
+```
+⛔ BLOCKED: Resolva os issues CRITICAL antes de /vitalia-spec-implement.
+Issues críticos: [lista]
+```
+
+**Se apenas HIGH/MEDIUM/LOW:**
+```
+✅ APROVADO COM RESSALVAS: Pode prosseguir para implementação.
+Recomenda-se resolver os issues HIGH antes de começar.
+```
+
+**Se zero issues:**
+```
+✅ APROVADO: Artefatos consistentes. Prosseguir com /vitalia-spec-implement.
+```
+
+---
+
+## Vitalia Additions (além do padrão)
+
+- **Medical Gate**: domínio = saúde + medical-gate não executado → CRITICAL automático
+- **Science Review**: feature com claims científicos sem revisão → HIGH automático
+- **Blueprint pedagógico**: domínio = educação + blueprint-plan ausente → MEDIUM
+
+---
+
+## Princípios
+
+- **Estritamente read-only** — nunca modificar spec, plan ou tasks
+- **Zero falsos positivos** — citar instâncias específicas, nunca padrões genéricos
+- **CRITICAL bloqueia** — implementação não inicia com issues críticos abertos
+- **Relatório é acionável** — findings com recomendação, não apenas problemas
+
+---
+
+## Done When
+
+- [ ] 6 análises executadas sobre spec, plan e tasks
+- [ ] Relatório produzido com tabelas e métricas
+- [ ] Gate de bloqueio ou aprovação emitido
+"""

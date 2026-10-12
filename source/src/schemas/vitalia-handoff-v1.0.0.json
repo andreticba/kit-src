@@ -1,0 +1,199 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "VitaliaWorkflowHandoff",
+  "description": "Schema polimorfico de transferencia de contexto inter-agente do Kit Vitalia SDD v0.6.0. Contratos: C12, C14.",
+  "type": "object",
+  "required": [
+    "$schema",
+    "schema_type",
+    "schema_version",
+    "envelope",
+    "intent",
+    "session_snapshot",
+    "routing"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "const": "vitalia-handoff-v1.0.0"
+    },
+    "schema_type": {
+      "type": "string",
+      "const": "workflow_handoff"
+    },
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "envelope": {
+      "type": "object",
+      "required": [
+        "handoff_id",
+        "created_at",
+        "ttl_seconds",
+        "source_workflow",
+        "target_workflow",
+        "machine_id",
+        "status"
+      ],
+      "properties": {
+        "handoff_id": {
+          "type": "string",
+          "description": "UUID v4 unico por evento de handoff"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "ttl_seconds": {
+          "type": "integer",
+          "default": 3600,
+          "description": "Tempo de vida do arquivo tmp em segundos"
+        },
+        "source_workflow": {
+          "type": "string",
+          "description": "Workflow emissor do handoff"
+        },
+        "target_workflow": {
+          "type": "string",
+          "description": "Workflow receptor do handoff"
+        },
+        "machine_id": {
+          "type": "string",
+          "description": "SHA256[:8] de VITALIA_MACHINE_NAME ou hostname"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "consumed",
+            "expired"
+          ]
+        }
+      }
+    },
+    "intent": {
+      "type": "object",
+      "required": [
+        "intent_type",
+        "source_input",
+        "normalized_summary",
+        "confidence"
+      ],
+      "properties": {
+        "intent_type": {
+          "type": "string",
+          "enum": [
+            "brainstorming_to_route",
+            "route_to_brainstorming",
+            "route_dispatch",
+            "brainstorming_delegate",
+            "subagent_response",
+            "sdd_pipeline_advance",
+            "session_action"
+          ],
+          "description": "Discriminador polimorfico. Fluxo primario: brainstorming_to_route (Supervisor->Dispatcher). Fallback: route_to_brainstorming (entrada vaga->brainstorming)."
+        },
+        "source_input": {
+          "type": "string",
+          "description": "Input bruto do usuario que originou o handoff"
+        },
+        "normalized_summary": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "Resumo normalizado da intencao (max 120 chars)"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "match_level": {
+          "type": "string",
+          "enum": [
+            "keyword",
+            "semantic",
+            "fallback"
+          ]
+        },
+        "match_source": {
+          "type": "string",
+          "description": "Ex: routing_table.brainstorming ou brainstorming_intents.saude_clinica"
+        },
+        "target_command": {
+          "type": "string",
+          "description": "Slash command sugerido, ex: /vitalia-spec-specify"
+        },
+        "detected_domain": {
+          "type": "string",
+          "description": "Dominio detectado em brainstorming_intents"
+        },
+        "domain_hint": {
+          "type": "string",
+          "description": "Dica de dominio para o agente receptor"
+        },
+        "pipeline_stage": {
+          "type": "string",
+          "enum": [
+            "brainstorming",
+            "specify",
+            "plan",
+            "tasks",
+            "implement",
+            "converge"
+          ]
+        },
+        "feature_context": {
+          "type": "string",
+          "description": "Nome ou ID da feature ativa no momento do handoff"
+        }
+      }
+    },
+    "session_snapshot": {
+      "type": "object",
+      "required": [
+        "active_feature",
+        "machine_id"
+      ],
+      "properties": {
+        "active_feature": {
+          "type": "string"
+        },
+        "p0": {
+          "type": "string",
+          "description": "Descricao do dado P0 detectado, se houver"
+        },
+        "machine_id": {
+          "type": "string"
+        },
+        "env_summary": {
+          "type": "object",
+          "description": "Snapshot do env_summary no momento do handoff"
+        }
+      }
+    },
+    "routing": {
+      "type": "object",
+      "required": [
+        "confirmed_by_user",
+        "suggested_command",
+        "fallback_used"
+      ],
+      "properties": {
+        "confirmed_by_user": {
+          "type": "boolean"
+        },
+        "confirmation_timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "suggested_command": {
+          "type": "string"
+        },
+        "fallback_used": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

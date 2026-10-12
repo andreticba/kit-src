@@ -1,0 +1,125 @@
+description = "Detecta e resolve ambiguidades no spec.md ativo via Taxonomia de 10 Categorias e SDDJudge --mode clarify."
+
+[meta]
+version          = "0.6.0"
+hardware_profile = "lightweight"
+domain_gates     = []
+
+[hooks]
+before = []
+after  = []
+
+[tools]
+required = ["write_file", "read_file"]
+optional = []
+
+[context]
+reads  = [
+  ".env",
+  ".vitalia/feature.json",
+  "specs/*/spec.md",
+  "specs/*/checklists/requirements.md"
+]
+writes = ["specs/*/spec.md", "specs/*/checklists/requirements.md", "specs/*/ambiguity_metrics.json"]
+
+[variables]
+input  = ["args", "feature_directory"]
+output = ["spec_file", "clarification_count", "metrics_file"]
+
+[transport]
+preferred     = "redis"
+redis_key     = "vitalia:workflow:clarify"
+file_path     = ".vitalia/pipeline.json"
+session_shard = true
+
+[guardian]
+yaml_sources = ["constitution", "grounding_domains"]
+guardian_profile = "gp_sdd-judge"
+
+prompt = """
+## User Input
+
+```text
+{{args}}
+```
+
+---
+
+## Propósito
+
+Detectar e resolver ambiguidades no `spec.md` ativo de forma **cirúrgica**.
+Aplica a **Taxonomia de 10 Categorias** (ISO/IEC/IEEE 29148 & Berry et al.) via `sdd_judge.py --mode clarify`, calculando o `Priority Score` ($Impacto \times Incerteza \times PesoDomínio$) e gerando `ambiguity_metrics.json`.
+Apresenta as ambiguidades priorizadas **uma de cada vez**, com recomendação explícita.
+Cada resposta é integrada **imediatamente** na spec antes da próxima pergunta.
+
+**Quando usar**: após `/vitalia-spec-specify`, antes de `/vitalia-spec-plan`.
+
+---
+
+## Comportamento
+
+### Passo 1: Carregar artefatos
+
+- Ler `.vitalia/feature.json` → obter `feature_directory`
+- Carregar `{feature_directory}/spec.md` (obrigatório)
+- Carregar `{feature_directory}/checklists/requirements.md` (opcional)
+
+### Passo 2: Executar Gatekeeper Constitucional — SDDJudge (--mode clarify)
+
+Executar o escaneamento automatizado de ambiguidades:
+
+```bash
+python3 ~/.vitalia/src/hooks/sdd_judge.py --mode clarify {feature_directory}/spec.md
+```
+
+O juiz processará o arquivo contra as 10 categorias taxonômicas e gerará `{feature_directory}/ambiguity_metrics.json`.
+
+### Passo 3: Carregar e Priorizar Ambiguidades
+
+Ler `{feature_directory}/ambiguity_metrics.json`.
+Filtrar e ordenar ambiguidades por `priority_score` descendente.
+
+### Passo 4: Apresentar perguntas — UMA POR VEZ
+
+Para cada ambiguidade na fila:
+
+```markdown
+## Clarificação [N/Total]: [Categoria] — [Tópico]
+
+**Contexto**: [Citar a parte ambígua da spec]
+
+**Pergunta**: [Pergunta específica e direcionada]
+
+**Minha recomendação**: [Opção recomendada com justificativa curta]
+
+**Opções**:
+| Opção | Resposta | Implicações |
+|-------|----------|-------------|
+| A (recomendada) | [...] | [...] |
+| B | [...] | [...] |
+| C | [...] | [...] |
+| Custom | Forneça sua resposta | [...] |
+
+_Responda com A, B, C ou sua resposta personalizada._
+```
+
+### Passo 5: Integrar resposta IMEDIATAMENTE
+
+Após cada resposta:
+1. Localizar a seção ambígua no `spec.md`
+2. Substituir/completar com a resposta do usuário
+3. Confirmar: "✅ Clarificação integrada. [N restantes]"
+4. Avançar para a próxima pergunta (ou encerrar se fila vazia)
+
+### Passo 6: Re-validação final e Relatório
+
+```
+Clarificações processadas: N/N
+Densidade de Defeitos Final: X ambiguidades / 100 linhas
+
+Spec atualizada: specs/NNN/spec.md
+Métricas salvas: specs/NNN/ambiguity_metrics.json
+
+Próximo passo: /vitalia-spec-plan
+```
+"""

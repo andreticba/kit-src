@@ -1,0 +1,81 @@
+description = "Inicia o fluxo sistemático de depuração. Ajuda a isolar falhas,"
+
+[meta]
+version = "0.3.0"
+hardware_profile = "lightweight"
+domain_gates = []
+
+[hooks]
+before = []
+after = []
+
+[tools]
+required = ["read_file"]
+optional = ["write_file"]
+
+[context]
+reads = [".vitalia/feature.json"]
+writes = []
+
+[transport]
+preferred = "redis"
+redis_key = "vitalia:workflow:debug"
+file_path = ".vitalia/pipeline.json"
+session_shard = true
+
+[guardian]
+yaml_sources = ["constitution", "grounding_domains"]
+guardian_profile = "gp_debug"
+
+prompt = """
+## User Input
+
+```text
+{{args}}
+```
+
+<!-- debug.md | Atualizado em: 26-06-2026 12:08:28(GMT-04:00) -->
+---
+description: >
+  Inicia o fluxo sistemático de depuração. Ajuda a isolar falhas,
+  identificar a causa raiz usando os 5 Whys e validar correções de forma segura.
+---
+
+# /debug — Depuração Sistemática
+
+{{args}}
+
+---
+
+## Propósito
+
+Identificar, isolar e corrigir bugs ou comportamentos inesperados sem adivinhação. A IA usará a metodologia estruturada de 4 fases para documentar a causa raiz antes de tocar no código.
+
+---
+
+## Comportamento
+
+Quando ativado, o agente interage com o usuário para carregar e executar a skill `dev/systematic-debugging`:
+
+### Passo 1: Seleção do Modo de Execução
+O agente perguntará explicitamente qual modo utilizar (caso não tenha sido fornecido via argumento):
+*   **Modo Pair Programming (Padrão):** O agente investiga cada fase, propõe suas observações e aguarda aprovação explícita do usuário para prosseguir.
+*   **Modo Autônomo (via flag `--autonomous` ou `--auto`):** O agente realiza a reprodução, o isolamento e a identificação do bug diretamente, gerando um relatório detalhado.
+
+### Passo 2: Execução das Fases de Depuração
+0.  **Phase 0: SDD Gate (Obrigatório):** Verifique se o bug/feature sob investigação tem amparo num `tasks.md`. Caso seja um ambiente sem especificação formal ainda, sugira fortemente documentar o problema primeiro. Em features controladas, Technical Stop Flag se `tasks.md` não existir.
+1.  **Phase 1: Reproduce:** Tenta reproduzir o bug a partir de logs, mensagens de erro fornecidas ou reprodução local.
+2.  **Phase 2: Isolate:** Isola a causa examinando alterações recentes de código (`git log`) e configurações.
+3.  **Phase 3: Understand (Os 5 Porquês):** Monta a análise de causa raiz usando o método socrático dos 5 Porquês.
+4.  **Phase 4: Fix & Verify:** Propõe o patch, aplica-o e testa. **Integração Defensiva:** Certifique-se de que a solução não viola regras da `constitution` (injetada no `guardian_json`). Se a causa raiz envolver pacotes, APIs ou limites cloud, verifique o `grounding_domains` no seu `guardian_json` para saber a fonte autoritativa de validação.
+
+---
+
+## Exemplos de Uso
+
+```bash
+/debug Erro de Timeout na chamada à API do Ollama
+/debug falha no parsing do PDF na fase 2
+/debug --autonomous Erro de importação em run_fase1.py
+```
+"""

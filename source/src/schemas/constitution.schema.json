@@ -1,0 +1,79 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "vitalia-sdd/constitution",
+  "title": "Vitalia Constitution Schema (Dual-Index — Opção D)",
+  "description": "Valida profiles/constitution.yaml. Suporta lookup O(1) por domain_id e principle_id.",
+  "type": "object",
+  "required": ["schema_type", "schema_version", "domain_index", "principles"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_type": {
+      "type": "string",
+      "const": "constitution",
+      "description": "Identificador do tipo de schema. DEVE ser 'constitution'."
+    },
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Versão semântica do schema. Ex: '0.6.0'."
+    },
+    "domain_index": {
+      "type": "object",
+      "description": "Índice primário: mapeia domain_id → lista de principle_id. Permite lookup O(1) por domínio.",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "pattern": "^P\\d{2}$",
+          "description": "Principle ID no formato P01, P02, ... P99."
+        },
+        "minItems": 1,
+        "uniqueItems": true
+      }
+    },
+    "principles": {
+      "type": "object",
+      "description": "Índice secundário: mapeia principle_id → definição completa do princípio.",
+      "minProperties": 1,
+      "additionalProperties": false,
+      "patternProperties": {
+        "^P\\d{2}$": {
+          "type": "object",
+          "required": ["name", "domain", "severity", "rule", "rationale", "validator"],
+          "additionalProperties": false,
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 3,
+              "description": "Nome curto do princípio. Ex: 'SDD Pipeline Inviolability'."
+            },
+            "domain": {
+              "type": "string",
+              "description": "Domínio ao qual o princípio pertence. Deve corresponder a uma chave em domain_index."
+            },
+            "severity": {
+              "type": "string",
+              "enum": ["BLOCKING", "WARNING", "INFO"],
+              "description": "Nível de severidade: BLOCKING bloqueia implementação, WARNING avisa, INFO é informativo."
+            },
+            "rule": {
+              "type": "string",
+              "minLength": 10,
+              "description": "Regra imperativa concisa. Começa com verbo no infinitivo ou 'Nunca'."
+            },
+            "rationale": {
+              "type": "string",
+              "minLength": 10,
+              "description": "Justificativa do princípio. Explica o 'porquê' para o LLM."
+            },
+            "validator": {
+              "type": "string",
+              "description": "Referência ao validador automático. Ex: 'hooks/llm_judge.py --mode tasks'. Use 'manual' se não houver automação."
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,269 @@
+description = "Traduz o pedido do usuário em spec.md formal com prioridades, FR-xxx/SC-xxx, Given/When/Then e auto-validação por checklist."
+
+[meta]
+version          = "0.3.0"
+hardware_profile = "lightweight"
+domain_gates     = []
+model_profile    = "pro"
+
+[hooks]
+before = ["python3 {{VITALIA_KIT_DIR}}/src/hooks/scan_environment.py"]
+after  = ["python3 {{VITALIA_KIT_DIR}}/src/hooks/sdd_judge.py --mode specify {{FEATURE_DIR}}/spec.md"]
+
+[tools]
+required = ["write_file", "read_file"]
+optional = []
+
+[context]
+reads  = []
+writes = [
+  ".vitalia/feature.json",
+  "specs/*/spec.md",
+  "specs/*/checklists/requirements.md"
+]
+
+[variables]
+input  = ["args"]
+output = ["feature_directory", "spec_file", "checklist_file"]
+
+[transport]
+preferred     = "redis"
+redis_key     = "vitalia:workflow:specify"
+file_path     = ".vitalia/pipeline.json"
+session_shard = true
+
+
+[guardian]
+yaml_sources = ["constitution", "grounding_domains"]
+guardian_profile = "gp_spec-specify"
+
+prompt = """
+
+
+## User Input
+
+```text
+{{args}}
+```
+
+Você **DEVE** considerar o input do usuário antes de prosseguir (se não vazio).
+
+---
+
+## Pre-Execution Checks
+
+**Verificar hooks `before_specify`**:
+- Se `.vitalia/extensions.yml` existir no projeto, ler e processar hooks em `hooks.before_specify`
+- Hooks com `optional: false` → executar e aguardar antes de prosseguir
+- Hooks com `optional: true` → anunciar ao usuário com `/{command}` para execução manual
+- Se o YAML não puder ser parseado → ignorar silenciosamente e continuar
+
+---
+
+## Propósito
+
+Traduzir o pedido do usuário em `spec.md` formal. A especificação deve ser agnóstica
+de tecnologia — foca no QUÊ e POR QUÊ, nunca no COMO.
+
+---
+
+## Comportamento
+
+### Passo 1: Gerar nome curto da feature
+
+- Extrair 2-4 palavras-chave do input do usuário
+- Formato: `ação-substantivo` (ex: `user-auth`, `fix-payment-timeout`)
+- Preservar termos técnicos (OAuth2, API, JWT)
+- Resultado: `SHORT_NAME`
+
+### Passo 2: Criar diretório da feature
+
+Verificar `.vitalia/feature.json` para configuração de numeração:
+- `"feature_numbering": "sequential"` (padrão) → prefixo `NNN` (próximo após escanear `specs/`)
+- `"feature_numbering": "timestamp"` → prefixo `YYYYMMDD-HHMMSS`
+
+Criar: `specs/<prefix>-<short-name>/`
+Gravar em `.vitalia/feature.json`:
+```json
+{"feature_directory": "specs/<prefix>-<short-name>"}
+```
+
+### Passo 3: Carregar contexto
+
+- **Opcional**: A constituição (MUST) é injetada automaticamente.
+
+### Passo 4: Executar fluxo de geração
+
+```
+1. Parse do input do usuário
+   → Se vazio: ERRO "Nenhuma descrição de feature fornecida"
+2. Extrair: atores, ações, dados, restrições
+3. Para aspectos não claros:
+   → Fazer suposição documentada na seção Assumptions
+   → Marcar [NEEDS CLARIFICATION: pergunta específica] APENAS se:
+     - A escolha impacta significativamente o escopo ou UX
+     - Múltiplas interpretações razoáveis com implicações diferentes
+     - Sem padrão razoável disponível
+   → LIMITE: Máximo 3 marcadores [NEEDS CLARIFICATION] no total
+   → Prioridade: escopo > segurança/privacidade > UX > detalhes técnicos
+4. Preencher seção User Scenarios & Testing
+5. Gerar Functional Requirements (cada um testável)
+6. Definir Success Criteria (mensuráveis, agnósticos de tecnologia)
+7. Identificar entidades-chave se houver dados envolvidos
+```
+
+### Passo 5: Carregar Preset e Escrever spec.md
+
+1. Verifique se o usuário passou a flag `--preset=<nome>` (ex: `--preset=clinical`).
+2. Se não passou, assuma o preset padrão: `software`.
+3. Leia o arquivo correspondente em `{{VITALIA_KIT_DIR}}/presets/<preset>.md`.
+4. Gere o arquivo `spec.md` mesclando o pedido do usuário com a estrutura rigorosa exigida pelo Preset carregado.
+5. Adicione seção `## Suposições Verificadas` na spec gerada:
+   - Para cada tecnologia/API/lib/serviço externo mencionado: busque e cite a fonte
+   - Formato: `- "[Nome]": verificado em [URL] em [data]`
+   - Se não for possível verificar: marque `[NEEDS VERIFICATION: <pergunta>]`
+
+  <grounding_rules>
+  Ao preencher "## Suposições Verificadas":
+  NUNCA afirme versões de pacotes, APIs ou modelos LLM sem busca externa prévia.
+  NUNCA cite URLs de memória — sempre verifique se o domínio/URL existe.
+  NUNCA use "padrão de mercado" ou "amplamente adotado" para tecnologias sem fonte verificada.
+  Domínios que exigem verificação: llm_models, python_packages, external_apis,
+  security_practices, regulations, cloud_services, scientific_claims.
+  Ver regra completa: profiles/grounding_domains.yaml
+  </grounding_rules>
+
+### Passo 6: Validação de qualidade
+
+Criar `specs/NNN-short-name/checklists/requirements.md`:
+
+```markdown
+# Specification Quality Checklist: [FEATURE NAME]
+
+**Purpose**: Validar completude e qualidade antes de prosseguir para planejamento
+**Feature**: [link para spec.md]
+
+## Content Quality
+- [ ] Sem detalhes de implementação (linguagens, frameworks, APIs) [Clarity]
+- [ ] Focado em valor do usuário e necessidades de negócio [Completeness]
+- [ ] Legível para stakeholders não-técnicos [Clarity]
+- [ ] Todas as seções obrigatórias preenchidas [Completeness]
+
+## Requirement Quality
+- [ ] Sem marcadores [NEEDS CLARIFICATION] restantes [Ambiguity]
+- [ ] Requisitos testáveis e não-ambíguos [Measurability]
+- [ ] Success Criteria mensuráveis [Measurability]
+- [ ] Success Criteria agnósticos de tecnologia [Clarity]
+- [ ] Todos os Acceptance Scenarios definidos [Coverage]
+- [ ] Edge cases identificados [Coverage]
+- [ ] Escopo claramente delimitado [Completeness]
+- [ ] Dependências e suposições documentadas [Completeness]
+
+## Feature Readiness
+- [ ] Todos os FRs têm critérios de aceite claros [Coverage]
+- [ ] User Scenarios cobrem os fluxos primários [Coverage]
+- [ ] Nenhum detalhe de implementação vaza para a spec [Clarity]
+
+## Notes
+- Itens incompletos requerem atualização da spec antes de /vitalia-clarify ou /vitalia-spec-plan
+```
+
+Executar validação:
+- Se todos os itens passam → prosseguir
+- Se itens falham → atualizar spec e re-validar (máx. 3 iterações)
+- Se [NEEDS CLARIFICATION] restam → apresentar todas de uma vez (máx. 3):
+
+```markdown
+## Question [N]: [Tópico]
+
+**Contexto**: [Citar seção relevante da spec]
+**O que precisamos saber**: [Pergunta específica]
+
+**Opções sugeridas**:
+
+| Opção | Resposta | Implicações |
+|-------|----------|-------------|
+| A     | [resposta] | [consequências] |
+| B     | [resposta] | [consequências] |
+| Custom | Forneça sua resposta | [...] |
+
+**Sua escolha**: _[Aguardar resposta]_
+```
+
+Após respostas: atualizar spec, re-validar.
+
+### Passo 7: Domain gates automáticos
+
+Se `domain_gates` do `.toml` incluir `"health"`:
+- Anunciar: "Domínio de saúde detectado. Executando Medical Gate..."
+- Chamar `/vitalia-medical-gate` automaticamente
+
+### Passo 7b: Gate Constitucional — SDDJudge (spec)
+
+Antes de apresentar a spec ao usuário, execute o gate constitucional:
+
+```bash
+python3 ~/.vitalia/src/hooks/sdd_judge.py --mode specify specs/{FEATURE}/spec.md
+```
+
+- **Exit code 0** (PASS ou WARN): apresentar spec.md ao usuário para aprovação.
+- **Exit code 1** (BLOCK): **NÃO apresentar a spec**. Exibir o veredicto completo
+  com destaque vermelho. Corrigir os FRs bloqueados e reexecutar o gate antes de
+  avançar ao Passo 8.
+
+### Passo 8: Mandatory Post-Execution Hooks
+
+- Verificar hooks em `hooks.after_specify` do `.vitalia/extensions.yml`
+- Hooks `optional: false` → executar e aguardar
+- Hooks `optional: true` → anunciar ao usuário
+
+### Passo 9: Relatório de conclusão
+
+```
+Spec criada: specs/NNN-short-name/spec.md
+Checklist: specs/NNN-short-name/checklists/requirements.md
+Feature ativa: .vitalia/feature.json → atualizado
+
+Resultado da validação:
+  ✅ Content Quality: 4/4
+  ✅ Requirement Quality: 8/8
+  ✅ Feature Readiness: 3/3
+
+Próximo passo: /vitalia-clarify (opcional) ou /vitalia-spec-plan
+```
+
+---
+
+## Diretrizes de qualidade
+
+### Requisitos Funcionais (FR-xxx)
+
+- **MUST** — obrigatório, não-negociável (RFC 2119)
+- **SHOULD** — fortemente recomendado, exceções precisam de justificativa
+- **MAY** — opcional, adiciona valor
+
+### Success Criteria: o que é mensurável
+
+| ❌ Errado (impl. técnica) | ✅ Correto (outcome do usuário) |
+|---|---|
+| "API responde em 200ms" | "Usuários veem resultados em < 1.5s" |
+| "Redis cache > 80% hit rate" | "Sistema suporta 1000 usuários simultâneos" |
+| "React renderiza eficientemente" | "Usuário completa fluxo em < 2 minutos" |
+
+### Padrões de não perguntar (usar padrão e documentar em Assumptions)
+
+- Retenção de dados: práticas padrão do domínio
+- Targets de performance: expectativas normais de web/mobile
+- Tratamento de erros: mensagens amigáveis com fallbacks apropriados
+- Autenticação: sessão padrão ou OAuth2 para web apps
+
+---
+
+## Done When
+
+- [ ] spec.md escrita em `specs/NNN-short-name/spec.md`
+- [ ] Checklist criado e validado em `checklists/requirements.md`
+- [ ] `.vitalia/feature.json` atualizado com `feature_directory`
+- [ ] Hooks pós-execução disparados ou pulados conforme regras
+- [ ] Relatório de conclusão entregue ao usuário
+"""

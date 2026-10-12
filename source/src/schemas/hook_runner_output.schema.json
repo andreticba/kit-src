@@ -1,0 +1,89 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "vitalia-sdd/hook-runner-output",
+  "title": "Vitalia Hook Runner Output Schema",
+  "description": "Valida o JSON emitido por vitalia_hook_runner.py no stdout. Representa o conteúdo do TOML convertido para JSON, com guardian_json opcionalmente injetado.",
+  "type": "object",
+  "required": ["description"],
+  "additionalProperties": true,
+  "properties": {
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Descrição do workflow. Sempre presente (campo raiz do TOML)."
+    },
+    "meta": {
+      "type": "object",
+      "description": "Metadados do workflow.",
+      "properties": {
+        "version": {"type": "string"},
+        "hardware_profile": {"type": "string"},
+        "domain_gates": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      }
+    },
+    "hooks": {
+      "type": "object",
+      "description": "Hooks before/after definidos no TOML.",
+      "properties": {
+        "before": {
+          "oneOf": [
+            {"type": "string"},
+            {"type": "array", "items": {"type": "string"}}
+          ]
+        },
+        "after": {
+          "oneOf": [
+            {"type": "string"},
+            {"type": "array", "items": {"type": "string"}}
+          ]
+        }
+      }
+    },
+    "context": {
+      "type": "object",
+      "description": "Arquivos declarados como leitura/escrita pelo workflow.",
+      "properties": {
+        "reads": {"type": "array", "items": {"type": "string"}},
+        "writes": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "tools": {
+      "type": "object",
+      "description": "Ferramentas requeridas/opcionais pelo workflow.",
+      "properties": {
+        "required": {"type": "array", "items": {"type": "string"}},
+        "optional": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "variables": {
+      "type": "object",
+      "description": "Variáveis de input/output declaradas pelo workflow.",
+      "properties": {
+        "input": {"type": "array", "items": {"type": "string"}},
+        "output": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "transport": {
+      "type": "object",
+      "description": "Configuração de transporte (Redis ou arquivo).",
+      "properties": {
+        "preferred": {"type": "string", "enum": ["redis", "file", "stdout"]},
+        "redis_key": {"type": "string"},
+        "file_path": {"type": "string"},
+        "session_shard": {"type": "boolean"}
+      }
+    },
+    "prompt": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Prompt principal do workflow, com todos os {{placeholders}} substituídos."
+    },
+    "guardian_json": {
+      "$ref": "guardian_payload.schema.json",
+      "description": "Payload do Guardian injetado pelo hook_runner (§11). Presente quando o TOML tem seção [guardian]."
+    }
+  }
+}

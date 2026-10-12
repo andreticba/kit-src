@@ -1,0 +1,94 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AmbiguityTaxonomyMetrics",
+  "type": "object",
+  "required": [
+    "spec_file",
+    "timestamp",
+    "defect_density",
+    "total_ambiguities",
+    "categories_breakdown",
+    "severity_breakdown",
+    "detected_ambiguities"
+  ],
+  "properties": {
+    "spec_file": {
+      "type": "string"
+    },
+    "timestamp": {
+      "type": "string"
+    },
+    "defect_density": {
+      "type": "number"
+    },
+    "total_ambiguities": {
+      "type": "integer"
+    },
+    "categories_breakdown": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer"
+      }
+    },
+    "severity_breakdown": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer"
+      }
+    },
+    "detected_ambiguities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "category",
+          "target_text",
+          "line_number",
+          "impact_score",
+          "uncertainty_score",
+          "domain_weight",
+          "priority_score",
+          "severity",
+          "rationale",
+          "recommendation"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "target_text": {
+            "type": "string"
+          },
+          "line_number": {
+            "type": "integer"
+          },
+          "impact_score": {
+            "type": "number"
+          },
+          "uncertainty_score": {
+            "type": "number"
+          },
+          "domain_weight": {
+            "type": "number"
+          },
+          "priority_score": {
+            "type": "number"
+          },
+          "severity": {
+            "type": "string"
+          },
+          "rationale": {
+            "type": "string"
+          },
+          "recommendation": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

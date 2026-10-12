@@ -1,0 +1,94 @@
+# gp_sdd-judge.yaml | Vitalia SDD v0.6.0 | 15-09-2026 17:45(GMT-04:00)
+# Guardian Profile para o SDDJudge (LLM-as-a-Judge).
+# FONTE UNICA DE VERDADE sobre quais principios cada fase avalia.
+# Zero principios hardcoded em Python ou nos prompts. (Prevenção de Criteria Drift)
+
+schema_type: "guardian_profile"
+schema_version: "0.6.0"
+workflow: "sdd-judge"
+
+judge_config:
+  model: "qwen2.5-coder:7b"
+  ollama_url: "http://localhost:11434/api/generate"
+  idle_timeout_seconds: 30
+  connect_timeout_seconds: 10
+  truncation:
+    default: 15000
+    after_task: 15000
+
+phase_profiles:
+  specify:
+    description: "Gate na geracao da spec.md - valida Requisitos Funcionais contra constituicao"
+    evaluation_unit: "FR"
+    extraction_pattern: "^\\s*(?:#{1,4}\\s*)?-?\\s*\\*?\\*?FR-\\d+"
+    principles_include: ["P00", "P01", "P02", "P03", "P07", "P09", "P14", "P17"]
+    constitution_domains:
+      - "PURPOSE"
+      - "GOVERNANCE"
+      - "GROUNDING"
+      - "PRIVACY_DATA_VAULT"
+      - "CLINICAL_SAFETY"
+      - "REGULATORY_COMPLIANCE"
+
+  plan:
+    description: "Gate na aprovacao do plan.md - valida Decisoes Tecnicas e ADRs"
+    evaluation_unit: "ADR"
+    extraction_pattern: "^##?#?\\s+(?:Decisao|Decisão|ADR)[:\\s]"
+    principles_include: ["P01", "P03", "P04", "P06", "P11", "P15", "P16"]
+    constitution_domains:
+      - "GOVERNANCE"
+      - "GROUNDING"
+      - "INFRASTRUCTURE"
+      - "SECRETS"
+      - "HARDWARE_AGNOSTICISM"
+      - "OBSERVABILITY"
+
+  tasks:
+    description: "Gate na geracao do tasks.md - valida atomicidade e ordem das tarefas"
+    evaluation_unit: "Task"
+    extraction_pattern: "^\\s*(?:#{1,4}\\s*)?-?\\s*(?:\\[[ xX/]\\]\\s*)?T\\d+"
+    principles_include: ["P00", "P01", "P05", "P06", "P09", "P12", "P13", "P14"]
+    constitution_domains:
+      - "PURPOSE"
+      - "GOVERNANCE"
+      - "SECRETS"
+      - "AGENT_SECURITY"
+      - "CLINICAL_SAFETY"
+
+  after_task:
+    description: "Gate pos-implementacao - valida Git Diff apos cada task concluida"
+    evaluation_unit: "Git Diff"
+    extraction_pattern: null
+    principles_include: ["P05", "P06", "P07", "P08", "P09", "P12", "P15"]
+    constitution_domains:
+      - "GOVERNANCE"
+      - "SECRETS"
+      - "PRIVACY_DATA_VAULT"
+      - "AGENT_SECURITY"
+      - "CLINICAL_SAFETY"
+      - "OBSERVABILITY"
+
+  clarify:
+    description: "Gate na especificacao para auditoria de ambiguidades taxonómicas"
+    evaluation_unit: "Requirement/Section"
+    extraction_pattern: "^\\s*(?:#{1,4}\\s*)?-?\\s*\\*?\\*?(?:FR-\\d+|Cenário|Cenario)"
+    principles_include: ["P00", "P01", "P02", "P03", "P04", "P16"]
+    constitution_domains:
+      - "PURPOSE"
+      - "GOVERNANCE"
+      - "GROUNDING"
+      - "INFRASTRUCTURE"
+
+  converge:
+    description: "Reconciliacao quadridimensional de spec/plan/tasks vs codigo real"
+    evaluation_unit: "Feature Artifact Pair"
+    extraction_pattern: null
+    principles_include: ["P00", "P01", "P02", "P03", "P04", "P05", "P06", "P11", "P15", "P16"]
+    constitution_domains:
+      - "PURPOSE"
+      - "GOVERNANCE"
+      - "GROUNDING"
+      - "INFRASTRUCTURE"
+      - "SECRETS"
+      - "HARDWARE_AGNOSTICISM"
+      - "OBSERVABILITY"

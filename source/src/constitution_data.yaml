@@ -1,0 +1,102 @@
+# constitution_data.yaml | Vitalia Kit v0.5.0
+# Atualizado em: 28-08-2026 09:00:00(GMT-04:00)
+schema_version: "0.5.0"
+updated_at: "28-08-2026 09:00:00(GMT-04:00)"
+timezone: "America/Cuiaba (GMT-04:00)"
+
+modules:
+  - id: "GOVERNANCE"
+    name: "Governança do Ciclo Vitalia SDD"
+    description: "Princípios invioláveis de arquitetura guiada por especificação e validação contínua."
+    principles:
+      - id: "P01"
+        name: "SDD Pipeline Inviolability"
+        level: "MUST"
+        gates: ["all"]
+        priority_score: 1.0
+        rule: "Nunca implementar código sem tasks.md aprovado pelo Task Verifier. Seguir rigorosamente specify -> plan -> tasks -> implement."
+        validator: "hooks/llm_judge.py --mode tasks"
+        severity: "BLOCKING"
+
+      - id: "P02"
+        name: "User-Centric Validation"
+        level: "MUST"
+        gates: ["specify", "plan"]
+        priority_score: 1.0
+        rule: "Toda proposta técnica deve declarar explicitamente o impacto ao usuário final e justificar escolhas de design."
+        validator: "hooks/guardian_context.py"
+        severity: "WARNING"
+
+  - id: "GROUNDING"
+    name: "Grounding e Verificação Externa Obrigatória"
+    description: "Protocolo para evitar alucinações técnicas em domínios críticos."
+    principles:
+      - id: "P03"
+        name: "External Verification Protocol"
+        level: "MUST"
+        gates: ["specify", "plan", "analyze"]
+        priority_score: 1.0
+        rule: "Afirmações sobre versões de pacotes, APIs, preços cloud e referências científicas exigem busca externa e Rastro de Pesquisa."
+        validator: "hooks/guardian_context.py"
+        severity: "WARNING"
+
+  - id: "INFRASTRUCTURE"
+    name: "Infraestrutura, Rastreabilidade e Carimbos"
+    description: "Normas de integridade temporal e identificação de artefatos."
+    principles:
+      - id: "P04"
+        name: "Timestamp & GMT-04:00 Integrity"
+        level: "MUST"
+        gates: ["all"]
+        priority_score: 1.0
+        rule: "Todos os arquivos e interações devem conter carimbo temporal no fuso imutável America/Cuiaba (GMT-04:00) e data/hora visíveis no corpo."
+        validator: "maintenance/header_stamp.py"
+        severity: "WARNING"
+
+      - id: "P11"
+        name: "Agnosticismo de Infraestrutura e Hardware"
+        level: "MUST"
+        gates: ["all"]
+        priority_score: 1.0
+        rule: "Nenhum script deve assumir IPs fixos ou limites abstratos (hardcoding). A arquitetura deve delegar a descoberta de recursos à infraestrutura subjacente (ex: nvidia-smi para VRAM, parse de .env para Nós ativos) provendo failbacks graciosos (Fail-Open Mitigado)."
+        validator: "hooks/llm_judge.py --mode after_task"
+        severity: "BLOCKING"
+
+  - id: "PRIVACY_DATA_VAULT"
+    name: "Privacidade, LGPD e Data Vault"
+    description: "Proteção de dados do participante e soberania sobre informações sensíveis."
+    principles:
+      - id: "P07"
+        name: "Privacy by Design & Masking"
+        level: "MUST"
+        gates: ["all"]
+        priority_score: 1.0
+        rule: "Dados sensíveis e PHI nunca devem ser armazenados sem consentimento explícito. Respostas devem ser sanitizadas por padrão."
+        validator: "hooks/llm_judge.py --mode after_task"
+        severity: "BLOCKING"
+
+  - id: "CLINICAL_SAFETY"
+    name: "Segurança Clínica e Human-in-the-Loop"
+    description: "Salvaguardas médicas obrigatórias para saúde digital."
+    principles:
+      - id: "P09"
+        name: "Medical Safety Gate"
+        level: "MUST"
+        gates: ["specify", "implement", "medical_gate"]
+        priority_score: 1.0
+        rule: "Recomendações clínicas, diagnósticos ou dosagens exigem status DRAFT, disclaimer educacional e aprovação humana explícita."
+        validator: "hooks/llm_judge.py --mode tasks"
+        severity: "BLOCKING"
+
+  - id: "DIDACTIC_ENGINEERING"
+    name: "Engenharia Didática e Código Aberto para Iniciantes"
+    description: "Clareza pedagógica e documentação acessível em 100% dos scripts."
+    principles:
+      - id: "P10"
+        name: "Didactics-First & Universal Help"
+        level: "MUST"
+        gates: ["implement"]
+        priority_score: 1.0
+        rule: "100% dos scripts do Kit devem implementar flag --help didática com exemplos práticos, e todo código deve conter comentários inline didáticos passo a passo."
+        validator: "hooks/llm_judge.py --mode after_task"
+        severity: "WARNING"

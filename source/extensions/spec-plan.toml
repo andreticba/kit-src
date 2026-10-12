@@ -1,0 +1,244 @@
+description = "Lê o spec.md aprovado e propõe arquitetura técnica com decisões documentadas. Gera plan.md + research.md + constitution check."
+
+[meta]
+version          = "0.3.0"
+hardware_profile = "lightweight"
+domain_gates     = []
+model_profile    = "pro"
+
+[hooks]
+before = ["python3 {{VITALIA_KIT_DIR}}/src/hooks/scan_environment.py"]
+after  = ["python3 {{VITALIA_KIT_DIR}}/src/hooks/sdd_judge.py --mode plan {{FEATURE_DIR}}/plan.md"]
+
+[tools]
+required = ["write_file", "read_file"]
+optional = ["web_search"]
+
+[context]
+reads  = [
+  ".vitalia/feature.json",
+  "specs/*/spec.md",
+  "specs/*/checklists/requirements.md"
+]
+writes = [
+  "specs/*/plan.md",
+  "specs/*/research.md",
+  "specs/*/data-model.md",
+  "specs/*/contracts/",
+  "specs/*/quickstart.md"
+]
+
+[variables]
+input  = ["args", "feature_directory"]
+output = ["plan_file", "research_file", "constitution_status"]
+
+[transport]
+preferred     = "redis"
+redis_key     = "vitalia:workflow:plan"
+file_path     = ".vitalia/pipeline.json"
+session_shard = true
+
+
+[guardian]
+yaml_sources = ["constitution", "grounding_domains"]
+guardian_profile = "gp_spec-plan"
+
+prompt = """
+
+
+## User Input
+
+```text
+{{args}}
+```
+
+---
+
+## Propósito
+
+Ler o `spec.md` aprovado e produzir um plano técnico completo com decisões
+documentadas e justificadas. Resultado: `plan.md` + artefatos auxiliares que
+servem de base para `/vitalia-spec-tasks` e `/vitalia-spec-implement`.
+
+---
+
+## Comportamento
+
+### Passo 1: Verificar hooks `before_plan`
+
+Se `.vitalia/extensions.yml` existir, executar hooks em `hooks.before_plan`
+conforme política `optional: false/true`.
+
+### Passo 2: Carregar contexto
+
+1. Ler `.vitalia/feature.json` → localizar `feature_directory`
+2. Ler `{feature_directory}/spec.md` (obrigatório — erro se ausente)
+3. Ler `{feature_directory}/checklists/requirements.md` (opcional)
+   - Se houver itens `[ ]` incompletos → avisar e perguntar se prossegue
+
+### Passo 3: Gate Constitucional — SDDJudge (plan)
+
+Execute o gate automatizado antes de avançar com o planejamento técnico:
+
+```bash
+python3 ~/.vitalia/src/hooks/sdd_judge.py --mode plan specs/{FEATURE}/plan.md
+```
+
+- **Exit code 0** (PASS ou WARN): planejamento aprovado — prosseguir para o Passo 4.
+- **Exit code 1** (BLOCK): **BLOQUEAR o planejamento**. Exibir o veredicto completo.
+  Corrigir as ADRs bloqueadas e reexecutar o gate antes de avançar.
+
+> O resultado do gate substitui o Constitution Check manual. O sdd_judge produz
+> o relatório de auditoria linha por linha com evidências concretas da constituição.
+
+
+### Passo 4: Fase 0 — Pesquisa e Decisões Técnicas
+
+Para cada ponto técnico não definido na spec, documentar em `research.md`:
+
+```markdown
+# Technical Research: [FEATURE]
+
+## Decisão: [Nome da Decisão]
+- **Escolhido**: [X]
+- **Verificado em**: [URL da fonte] em [DD-MM-YYYY]  ← OBRIGATÓRIO
+- **Justificativa**: [por que X serve melhor aqui — com base na fonte acima]
+- **Alternativas**:
+  - [Y]: rejeitado porque [razão verificada]
+  - [Z]: rejeitado porque [razão verificada]
+```
+
+> ⚠️ Decisões técnicas sem campo "Verificado em" são inválidas e devem ser revisadas antes do tasks.md.
+
+<grounding_rules>
+Ao preencher cada Decisão em research.md:
+NUNCA escolha uma biblioteca, framework ou serviço sem verificar versão atual em fonte autoritativa.
+NUNCA escreva "Escolhido: X porque é mais moderno/popular" sem URL de fonte verificada.
+NUNCA afirme compatibilidade de versões sem verificar em pypi.org ou documentação oficial.
+Domínios que exigem verificação: python_packages (pypi.org), external_apis (doc oficial),
+cloud_services (pricing pages), llm_models, security_practices.
+Ver regra completa: profiles/grounding_domains.yaml (via Guardian)
+</grounding_rules>
+
+**Regra de escala**:
+- Projeto simples (< 5 arquivos afetados) → seção `## Technical Decisions` no `plan.md`
+- Projeto médio/grande (5+ arquivos, API pública, libs externas) → `research.md` separado
+
+### Passo 5: Fase 1 — Design e Artefatos
+
+#### 5.1 plan.md (obrigatório)
+
+```markdown
+# Implementation Plan: [FEATURE]
+
+**Branch**: `NNN-nome` | **Date**: [DATA] | **Spec**: [link]
+
+## Summary
+[Requisito principal + abordagem técnica]
+
+## Technical Context
+
+**Language/Version**: [ex: Python 3.11]
+**Primary Dependencies**: [lista]
+**Storage**: [se aplicável] ou N/A
+**Testing**: [framework]
+**Target Platform**: [Web/Mobile/Desktop/Server]
+**Project Type**: [library/web-app/cli/api]
+**Performance Goals**: [derivados dos SC-xxx da spec]
+**Constraints**: [limitações técnicas]
+
+## Constitution Check
+[resultado do Passo 3]
+
+## Technical Decisions
+[resultado da Fase 0 — ou link para research.md]
+
+## Project Structure
+
+### Documentation (this feature)
+[árvore em specs/NNN-feature/]
+
+### Source Code
+[árvore real dos arquivos afetados]
+
+## Phase Overview
+
+### Phase 1: Setup
+### Phase 2: Foundational
+### Phase 3: User Story 1 — [Título]
+### Phase N: Polish & Cross-Cutting
+```
+
+#### 5.2 data-model.md (quando há persistência)
+
+```markdown
+# Data Model: [FEATURE]
+
+## Entity: [Nome]
+- **campo**: tipo — constraint
+- **Relacionamentos**: [...]
+- **Estados/Ciclo de vida**: [...]
+```
+
+*Gerar quando*: feature tem banco, arquivos persistidos, estado global ou entidades relacionadas.
+
+#### 5.3 contracts/ (quando há interface pública)
+
+Criar `{feature_directory}/contracts/` com contrato adequado:
+- **Web API**: método, path, request, response, erros
+- **CLI**: comandos e flags
+- **Biblioteca**: assinaturas de funções públicas
+
+*Gerar quando*: feature expõe interface consumida por outros sistemas.
+
+#### 5.4 quickstart.md (guia de validação executável)
+
+```markdown
+# Quickstart: [FEATURE]
+
+## Pré-requisitos
+## Cenário: [Nome — mapeado a uma User Story]
+1. [comando]
+2. [próximo passo]
+**Esperado**: [resultado verificável]
+```
+
+*Gerar quando*: há integração end-to-end verificável.
+
+### Passo 6: Verificar hooks `after_plan`
+
+Executar hooks em `hooks.after_plan` conforme política.
+
+### Passo 7: Relatório de conclusão
+
+```
+Plan gerado: specs/NNN/plan.md
+Constitution Check: APROVADO / FALHOU em [lista]
+Artefatos auxiliares:
+  research.md    ✅ / embutido no plan.md
+  data-model.md  ✅ / N/A
+  contracts/     ✅ / N/A
+  quickstart.md  ✅ / N/A
+
+Próximo passo: /vitalia-spec-tasks
+```
+
+---
+
+## Princípios
+
+- **Pesquisa ANTES do design** — nunca propor stack sem documentar a decisão
+- **Constitution Check é gate** — planejamento não avança com violações de MUST
+- **Artefatos separados têm custo** — gerar apenas quando agregam valor real
+- **plan.md é o único lugar de tecnologias** — spec.md nunca menciona stack
+- **Decisões documentadas servem o futuro** — research.md é o registro de por que escolhemos X
+
+---
+
+## Done When
+
+- [ ] plan.md gerado com Constitution Check executado
+- [ ] Artefatos auxiliares criados conforme regras de escala
+- [ ] Hooks pós-execução disparados ou pulados
+- [ ] Relatório de conclusão entregue
+"""

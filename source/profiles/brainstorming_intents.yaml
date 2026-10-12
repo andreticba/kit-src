@@ -1,0 +1,47 @@
+# brainstorming_intents.yaml | Vitalia SDD v0.6.0 | 14-09-2026 19:50(GMT-04:00)
+# Catalogo de Intencoes Semanticas para Roteamento e Classificacao
+# Contratos atendidos: C6, C8, C9
+# REGRA C8: apenas dados estruturados -- zero metadados comportamentais ou prompts
+
+schema_type: "brainstorming_intents"
+schema_version: "0.6.0"
+
+domains:
+  estrategia_produto:
+    description: "Concepcao de novas funcionalidades, alinhamento de roadmap, proposta de valor e trade-offs de produto."
+    threshold: 0.80
+    p0_flag: false
+    utterances:
+      - "Quero criar uma nova funcionalidade no sistema"
+      - "Preciso estruturar a ideia de um novo modulo"
+      - "Como podemos desenhar a arquitetura deste produto?"
+      - "Quero fazer um brainstorming de produto"
+      - "Preciso decidir os trade-offs desta feature"
+      - "Como posso melhorar a experiencia do usuario nesta tela?"
+      - "Quero propor um novo fluxo de onboarding"
+
+  educacao_workshop:
+    description: "Criacao de material didatico, estruturacao de cursos, workshops, apresentacoes academicas ou treinos."
+    threshold: 0.78
+    p0_flag: false
+    utterances:
+      - "Crie uma apresentacao sobre o kit para a universidade"
+      - "Preciso de um roteiro de workshop tecnico"
+      - "Como estruturar uma aula pratica sobre este tema?"
+      - "Desenvolva um plano de ensino ou treinamento"
+      - "Monte um material didatico sobre arquitetura de software"
+      - "Quero criar um curso sobre desenvolvimento com IA"
+      - "Preciso de slides para uma palestra academica"
+
+  saude_clinica:
+    description: "Sistemas medicos, manipulacao de dados de pacientes, algoritmos de suporte a decisao clinica e privacidade."
+    threshold: 0.85
+    p0_flag: true
+    utterances:
+      - "Desenvolver modulo de prontuario ou dados de saude"
+      - "Integracao com exames ou biomarcadores"
+      - "Analise de dados medicos ou diagnosticos"
+      - "Sistema para uso por profissionais de saude em clinica"
+      - "Tratamento de dados sensiveis de pacientes (LGPD/HIPAA)"
+      - "Quero adicionar recomendacao de intensidade de treino"
+      - "Preciso registrar frequencia cardiaca e calcular zonas de esforco"

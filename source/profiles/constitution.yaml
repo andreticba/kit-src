@@ -1,0 +1,275 @@
+# constitution.yaml | Vitalia SDD v0.6.0 | 07-09-2026 14:19(GMT-04:00)
+# Schema: Dual-Index (Opção D) — O(1) lookup por domain_id e principle_id
+# Fontes: docs/rules/always-on/*.md + docs/rules/file-triggered/*.md
+#         + OWASP LLM Top 10 2025 + EU AI Act Art.12 + CMAG 2025/2026
+# Princípios: P00–P17 (18 princípios, 12 domínios)
+# Validar com: python3 -m jsonschema --instance profiles/constitution.yaml src/schemas/constitution.schema.json
+
+schema_type: "constitution"
+schema_version: "0.6.0"
+
+# ─── ÍNDICE PRIMÁRIO: domain_id → [principle_id, ...] ────────────────────────
+domain_index:
+  PURPOSE:               ["P00"]
+  GOVERNANCE:            ["P01", "P02", "P05"]
+  GROUNDING:             ["P03"]
+  INFRASTRUCTURE:        ["P04", "P16"]
+  SECRETS:               ["P06"]
+  PRIVACY_DATA_VAULT:    ["P07"]
+  AGENT_SECURITY:        ["P08", "P12", "P13"]
+  CLINICAL_SAFETY:       ["P09", "P14"]
+  DIDACTIC_ENGINEERING:  ["P10"]
+  HARDWARE_AGNOSTICISM:  ["P11"]
+  OBSERVABILITY:         ["P15"]
+  REGULATORY_COMPLIANCE: ["P17"]
+
+# ─── ÍNDICE SECUNDÁRIO: principle_id → definição completa ────────────────────
+principles:
+
+  P00:
+    name: "Purpose Arbiter — Human Wellbeing First"
+    domain: "PURPOSE"
+    severity: "BLOCKING"
+    rule: >
+      Toda decisão técnica serve ao bem-estar de quem usa, de quem cuida
+      e de quem constrói. Quando artigos colidirem ou caso não previsto
+      surgir, este princípio é o critério de desempate inviolável.
+    rationale: >
+      Tecnologia a serviço do bem-estar humano. Nenhuma pressão de prazo
+      suspende este árbitro. Fonte: architect-constitution.md Art. 0.
+    validator: "manual"
+
+  P01:
+    name: "SDD Pipeline Inviolability"
+    domain: "GOVERNANCE"
+    severity: "BLOCKING"
+    rule: >
+      Nunca implementar código sem tasks.md aprovado. Pipeline obrigatório:
+      specify → plan → tasks → implement → converge. Em domínios de saúde,
+      spec inclui o medical-gate (P09) antes do plan.
+    rationale: >
+      Código sem spec é dívida técnica não rastreável. O Task Verifier
+      garante que cada linha tem origem em requisito aprovado pelo usuário.
+    validator: "hooks/llm_judge.py --mode tasks"
+
+  P02:
+    name: "User-Centric Validation & Impact Declaration"
+    domain: "GOVERNANCE"
+    severity: "WARNING"
+    rule: >
+      Toda proposta técnica declara o impacto ao usuário final. Antes de
+      qualquer spec, validar: Multi-Tenancy, RBAC, LGPD/HIPAA, Performance
+      (N+1), Segurança (input validation). LGPD/HIPAA ativa P07 e P09.
+    rationale: >
+      Decisões sem âncora no usuário produzem sistemas corretos
+      funcionalmente mas incorretos em valor entregue.
+    validator: "hooks/guardian_context.py"
+
+  P03:
+    name: "External Verification Protocol (Grounding)"
+    domain: "GROUNDING"
+    severity: "WARNING"
+    rule: >
+      Versões de pacotes, endpoints de API, preços cloud, referências
+      científicas e CVEs exigem busca externa prévia e Rastro de Pesquisa
+      no artefato. Comportamento real de APIs validado antes de implementar.
+    rationale: >
+      LLMs alucinam versões e URLs. Em saúde, um pacote desatualizado
+      pode ter consequências clínicas. "Confiar sem verificar" é falha.
+    validator: "hooks/guardian_context.py"
+
+  P04:
+    name: "Timestamp & GMT-04:00 Integrity"
+    domain: "INFRASTRUCTURE"
+    severity: "WARNING"
+    rule: >
+      Todo arquivo criado ou modificado contém na primeira linha:
+      `nome_arquivo | Vitalia SDD v0.6.0 | DD-MM-YYYY HH:MM(GMT-04:00)`.
+      Fuso imutável America/Cuiaba (GMT-04:00) — sem exceções e sem DST.
+    rationale: >
+      Rastreabilidade exige que qualquer artefato possa ser datado.
+      GMT-04:00 imutável garante consistência entre máquinas em fusos distintos.
+    validator: "maintenance/header_stamp.py"
+
+  P05:
+    name: "Test-First Development (TDD Inviolável)"
+    domain: "GOVERNANCE"
+    severity: "BLOCKING"
+    rule: >
+      Nenhuma lógica em services/, core/, domain/ ou use_cases/ é
+      implementada sem teste escrito antes (Red phase confirmada).
+      Cobertura mínima: Services 90%, Views 70%, Utils 80%, Models 85%.
+      Tool Hook: escrita em .py produtivo bloqueada sem teste no histórico.
+    rationale: >
+      Código sem teste é dívida com data de validade curta. Red phase
+      confirma que o teste realmente verifica o comportamento esperado.
+    validator: "hooks/llm_judge.py --mode after_task"
+
+  P06:
+    name: "Secrets Never in Git"
+    domain: "SECRETS"
+    severity: "BLOCKING"
+    rule: >
+      Credenciais, chaves e senhas existem apenas em .env locais ou vaults.
+      Nenhum segredo entra em commits, logs ou outputs de console.
+      Migrações de banco são não-destrutivas e idempotentes.
+    rationale: >
+      Segredo em git é permanente — o histórico não apaga. Em sistemas
+      de saúde com PHI/PII, constitui breach reportável (LGPD Art. 48).
+    validator: "manual"
+
+  P07:
+    name: "Privacy by Design & Data Vault (LGPD/HIPAA)"
+    domain: "PRIVACY_DATA_VAULT"
+    severity: "BLOCKING"
+    rule: >
+      Dado de saúde pertence ao Participante. PHI/PII criptografado em
+      repouso (nível de campo). Logs sanitizados — sem dado de saúde em
+      texto puro. Queries sempre com user_id + organization_id.
+      Suporte a exclusão auditável (LGPD Art. 18).
+    rationale: >
+      LGPD Art. 11 exige base legal para dados de saúde. Multi-tenancy
+      sem filtro é vulnerabilidade CRÍTICA. Tolerância zero.
+    validator: "hooks/llm_judge.py --mode after_task"
+
+  P08:
+    name: "Smart Routing & Minimum Privilege per Agent"
+    domain: "AGENT_SECURITY"
+    severity: "INFO"
+    rule: >
+      Identificar silenciosamente o domínio e ativar especialista conforme
+      AGENTS.md. Agentes não acessam ferramentas fora de seu domínio
+      declarado (default-deny — OWASP LLM06:2025).
+      Override: @agente ou menção explícita do usuário.
+    rationale: >
+      Excessive Agency (OWASP LLM06:2025) é risco crítico em sistemas
+      multi-agente. Mínimo privilégio reduz superfície de ataque.
+    validator: "hooks/guardian_context.py"
+
+  P09:
+    name: "Medical Safety Gate (HITL Triplo)"
+    domain: "CLINICAL_SAFETY"
+    severity: "BLOCKING"
+    rule: >
+      IA gera → DRAFT. Especialista científico → REVIEW. Profissional de
+      saúde humano → ACTIVE (único estado publicável ao usuário final).
+      Disclaimer educacional obrigatório. Gate ativado por: diagnóstico,
+      dosagens, biomarcadores, protocolos, nutrição, zonas de treino.
+    rationale: >
+      IA alucina. Em saúde, isso tem consequências à vida humana.
+      HITL médico é requisito ético, regulatório (EU AI Act Art. 14)
+      e de responsabilidade civil. Não é opcional.
+    validator: "hooks/llm_judge.py --mode tasks"
+
+  P10:
+    name: "Didactics-First & Automation as Guardian"
+    domain: "DIDACTIC_ENGINEERING"
+    severity: "WARNING"
+    rule: >
+      100% dos scripts Python implementam --help didático com exemplos.
+      Código contém comentários inline acessíveis a desenvolvedores júnior.
+      Processos repetitivos têm scripts — processo manual é falha esperando.
+    rationale: >
+      O Kit é usado por pesquisadores sem background de engenharia.
+      Código sem --help é inacessível e gera suporte manual evitável.
+    validator: "hooks/llm_judge.py --mode after_task"
+
+  P11:
+    name: "Hardware-Agnostic LLM Routing & Machine Identity"
+    domain: "HARDWARE_AGNOSTICISM"
+    severity: "BLOCKING"
+    rule: >
+      Nenhum nome de modelo LLM hardcoded — vem de .env (NO1_MODEL,
+      NO2_MODEL, ROUTER_LLM_PROFILE etc.). Nenhum machine_id hardcoded —
+      deriva de VITALIA_MACHINE_NAME env var ou socket.gethostname() via
+      SHA256[:8]. Builds reprodutíveis: local = produção.
+    rationale: >
+      Sistema opera em hardware heterogêneo (GTX 1060 6GB, RTX 3090,
+      CPU-only). Hardcodar quebra silenciosamente em hardware diferente.
+    validator: "manual"
+
+  P12:
+    name: "Agent Security — Prompt Injection & Output Validation"
+    domain: "AGENT_SECURITY"
+    severity: "BLOCKING"
+    rule: >
+      Todo input é potencialmente malicioso (OWASP LLM01:2025). Output de
+      LLMs nunca executado sem validação de schema. System prompts são
+      segredos (LLM07:2025). Agentes não executam ações destrutivas sem
+      confirmação HITL. Stack trace nunca vaza para o cliente.
+    rationale: >
+      Prompt Injection é risco #1 em sistemas agênticos (OWASP 2025).
+      Indirect Injection via RAG é especialmente perigosa em healthcare.
+    validator: "hooks/llm_judge.py --mode after_task"
+
+  P13:
+    name: "API Safety Gate"
+    domain: "AGENT_SECURITY"
+    severity: "BLOCKING"
+    rule: >
+      Nenhum endpoint de dado de saúde é público. Checklist obrigatório:
+      autenticação JWT, autorização por recurso, rate limiting, validação
+      de input via schema, filtro por organization_id, sem stack trace
+      para o cliente (log interno + resposta genérica).
+    rationale: >
+      Endpoints sem autenticação em sistemas de saúde violam LGPD e HIPAA.
+      Autorização vs autenticação é o erro mais comum em APIs REST.
+    validator: "hooks/llm_judge.py --mode tasks"
+
+  P14:
+    name: "Evidence Traceability & Clinical Data Lineage"
+    domain: "CLINICAL_SAFETY"
+    severity: "BLOCKING"
+    rule: >
+      Todo constraint médico (MC-NNN) carrega: identificador rastreável,
+      fonte científica com nível (A=meta-análise, B=RCT, C=expert) e
+      comentário no código. EU AI Act Art. 12: logs automáticos de inputs,
+      outputs e ações humanas com timestamps.
+    rationale: >
+      Explicabilidade jurídica exige raciocínio auditável. EU AI Act
+      (vigência 02-08-2026) impõe data lineage obrigatório para high-risk AI.
+    validator: "hooks/llm_judge.py --mode tasks"
+
+  P15:
+    name: "Observability & Structured Logging"
+    domain: "OBSERVABILITY"
+    severity: "WARNING"
+    rule: >
+      Structured logging obrigatório em serviços críticos. N+1 é falha
+      de design — usar eager loading. Processamento pesado vai para filas
+      (Redis Streams), não para o ciclo de request. Telemetria de agentes
+      centralizada para rastreabilidade de inter-agent communication.
+    rationale: >
+      Em sistemas multi-agente, falhas cascata são impossíveis de
+      diagnosticar sem telemetria centralizada.
+    validator: "manual"
+
+  P16:
+    name: "Artifact Integrity & Mermaid Defensive Programming"
+    domain: "INFRASTRUCTURE"
+    severity: "WARNING"
+    rule: >
+      Toda edição deixa o arquivo em estado válido sem regressões.
+      Modificações parciais que tornam arquivos inconsistentes são vetadas.
+      Mermaid: todos os labels de nodes e edges entre aspas duplas para
+      prevenir quebra por caracteres especiais: (), [], |, {}.
+      Históricos de sessão: inserção sempre no topo (cronologia reversa).
+    rationale: >
+      Artefatos inconsistentes causam falhas silenciosas de integração.
+      Mermaid quebra silenciosamente com parênteses em timestamps.
+    validator: "maintenance/header_stamp.py"
+
+  P17:
+    name: "EU AI Act Compliance — High-Risk Healthcare AI"
+    domain: "REGULATORY_COMPLIANCE"
+    severity: "BLOCKING"
+    rule: >
+      Sistemas de IA em saúde são high-risk sob EU AI Act (vigente
+      02-08-2026). Obrigações: documentação técnica antes do deploy,
+      sistema de gestão de risco documentado, logs automáticos (Art. 12),
+      human oversight efetivo (Art. 14), quality management system.
+      Penalty: até €15M ou 3% do faturamento global.
+    rationale: >
+      Conformidade não é diferencial — é baseline legal. Produtos sem
+      conformidade expõem pacientes a risco e a empresa a sanções graves.
+    validator: "manual"

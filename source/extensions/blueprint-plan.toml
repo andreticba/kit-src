@@ -1,0 +1,45 @@
+description = "SHIM: Comando descontinuado. Redireciona para /vitalia-spec-plan"
+
+[meta]
+version = "0.4.0"
+hardware_profile = "lightweight"
+domain_gates = []
+
+[hooks]
+before = []
+after = []
+
+[tools]
+required = []
+optional = []
+
+[context]
+reads = []
+writes = []
+
+[transport]
+preferred = "redis"
+redis_key = "vitalia:workflow:blueprint-plan"
+file_path = ".vitalia/pipeline.json"
+session_shard = true
+
+prompt = """
+## User Input
+
+```text
+{{args}}
+```
+
+<!-- blueprint-plan.md | Shim (Spec 5.2) -->
+
+# /blueprint-plan — Comando Descontinuado
+
+⚠️ **Aviso de Descontinuação (Vitalia Kit v0.4.0)**
+O comando `/blueprint-plan` foi descontinuado devido à unificação metodológica.
+
+**Ação Obrigatória do Agente:**
+Avise o usuário que o comando correto (que suporta o workflow de presets) agora é:
+`/vitalia-spec-plan`
+
+Se o usuário forneceu algum argumento ({{args}}), você pode invocar a skill correta automaticamente, repassando os argumentos.
+"""

@@ -1,0 +1,78 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "vitalia-sdd/guardian-profile",
+  "$comment": "guardian_profile.schema.json | Vitalia SDD v0.6.0 | 07-09-2026 14:41(GMT-04:00)",
+  "title": "Vitalia Guardian Profile Schema",
+  "description": "Valida arquivos gp_*.yaml carregados por GuardianContextV2.resolve_profile().",
+  "type": "object",
+  "required": ["schema_type", "schema_version", "tokens", "constitution"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_type": {
+      "type": "string",
+      "const": "guardian_profile"
+    },
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "workflow": {
+      "type": "string",
+      "description": "Nome do workflow alvo. Ex: 'brainstorming', 'spec-implement'."
+    },
+    "tokens": {
+      "type": "object",
+      "required": ["total_budget"],
+      "properties": {
+        "total_budget": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 8192,
+          "description": "Budget total de tokens para o payload Guardian."
+        },
+        "source_weights": {
+          "type": "object",
+          "description": "Peso por fonte YAML. Chave = nome da fonte, valor = fração (0.0-1.0).",
+          "additionalProperties": {
+            "type": "number",
+            "minimum": 0.0,
+            "maximum": 1.0
+          }
+        }
+      }
+    },
+    "constitution": {
+      "type": "object",
+      "properties": {
+        "domains": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Domínios solicitados do domain_index. Vazio = todos."
+        },
+        "severity_filter": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["BLOCKING", "WARNING", "INFO"] },
+          "description": "Severidades a incluir."
+        },
+        "principles_include": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^P\\d{2}$" },
+          "description": "IDs de princípios a incluir explicitamente (override)."
+        },
+        "principles_exclude": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^P\\d{2}$" },
+          "description": "IDs de princípios a excluir explicitamente."
+        }
+      }
+    },
+    "session_context": {
+      "type": "object",
+      "properties": {
+        "include_p0":             { "type": "boolean" },
+        "include_active_feature": { "type": "boolean" },
+        "include_agents_queue":   { "type": "boolean" }
+      }
+    }
+  }
+}

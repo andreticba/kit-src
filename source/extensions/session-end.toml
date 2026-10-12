@@ -1,0 +1,132 @@
+description = "Encerra a sessão em 4 fases: reflexão, atualização 3-Tier, commit e shard."
+
+[meta]
+version = "0.4.0"
+hardware_profile = "lightweight"
+domain_gates = []
+
+[hooks]
+before = []
+after = []
+
+[tools]
+required = ["read_file", "write_file", "run_command"]
+optional = []
+
+[context]
+reads = [
+  ".vitalia/feature.json",
+  "{{VITALIA_KIT_DIR}}/config/schemas/learning_schema.json",
+  "{{VITALIA_KIT_DIR}}/config/schemas/decision_schema.json",
+  "{{VITALIA_KIT_DIR}}/config/schemas/grounding_domain_schema.json"
+]
+writes = []
+
+[transport]
+preferred = "redis"
+redis_key = "vitalia:workflow:session-end"
+file_path = ".vitalia/pipeline.json"
+session_shard = true
+
+[guardian]
+yaml_sources = ["constitution"]
+guardian_profile = "gp_session-end"
+
+prompt = """
+## User Input
+
+```text
+{{args}}
+```
+
+<!-- session-end.md | Atualizado pela Spec 3.1 -->
+
+# /session-end — Encerramento de Sessão (Spec 3.1)
+
+{{args}}
+
+---
+
+## Propósito
+
+Reflexão, registro e commit local. **NÃO faz push** do repositório de contexto.
+
+---
+
+## Pipeline de Encerramento (As 4 Fases)
+
+### 🪞 Fase 1 — Extração Cognitiva e Reflexão (HITL)
+
+**Diretiva de Extração Rigorosa:**
+Você atua como o consolidador da memória. Analise ativamente todo o seu histórico de chat (transcript) nesta sessão. Você DEVE extrair as decisões arquiteturais e os aprendizados, formatando-os ESTRITAMENTE conforme os moldes de `learning_schema.json` e `decision_schema.json` carregados no seu contexto.
+
+- **Filtro da Constituição:** Antes de registrar uma decisão, valide-a contra as regras presentes na sua `constitution` (injetada no `guardian_json`). Rejeite silenciosamente decisões que violem a constituição.
+- **Categorização:** Para aprendizados, use `[KIT]` para melhorias no ecossistema e `[PROJETO]` para a base de código local.
+
+Apresente um resumo para o usuário aprovar:
+```markdown
+📋 Resumo da sessão
+
+**Atividades:**
+- [item]
+- [item]
+
+**Próximo Passo (P0):**
+- [item]
+
+**Aprendizados Identificados:**
+- [KIT] [descrição]
+- [PROJETO] [descrição]
+
+✅ Aprova este resumo? Ajuste o que desejar.
+```
+
+#### 1.1 Detecção de Novos Domínios de Grounding (após aprovação do resumo)
+
+Após o usuário aprovar o resumo, verifique se algum aprendizado `[KIT]` revela:
+- Um domínio de risco externo NÃO coberto na leitura do arquivo global `{{VITALIA_KIT_DIR}}/profiles/grounding_domains.yaml`
+- Uma fonte autoritativa melhor para um domínio já existente
+
+Se sim, para cada domínio/fonte nova detectada:
+1. Anunciar ao usuário: `"Novo domínio de grounding identificado: [X] — adicionar ao repositório local?"`
+2. Se aprovado, fazer **append** em `.vitalia/memory/session/data/grounding-domains.jsonl`, preenchendo as variáveis rigorosamente de acordo com o `grounding_domain_schema.json` carregado no seu contexto:
+```bash
+echo '{"id":"<sha256[:16] do conteúdo>","type":"new_domain","scope":null,"domain":"<nome>","description":"<desc>","authoritative_sources":["<url>"],"machine_id":"<id>","timestamp":"<DD-MM-YYYY HH:MM(GMT-04:00)>","reason":"<motivo>"}' >> .vitalia/memory/session/data/grounding-domains.jsonl
+```
+3. **NÃO decidir** global vs local aqui — decisão de scope é do `/vitalia-session-consolidate`
+4. **NÃO editar** views nem o yaml global.
+
+### 🧠 Fase 2 — Atualização Estruturada do Shard e Dados (via Motor)
+
+Após a aprovação, não escreva nos arquivos YAML ou JSONL diretamente. Extraia os dados e delegue a persistência ao motor de contexto.
+
+1. Crie o arquivo `.vitalia/temp_learnings.json` contendo a array JSON dos aprendizados. Utilize ESTRITAMENTE as chaves e a estrutura definida no arquivo `learning_schema.json` lido no seu contexto. (Escreva `[]` se vazio. Sem blocos de código markdown).
+2. Crie o arquivo `.vitalia/temp_decisions.json` baseado ESTRITAMENTE no `decision_schema.json`. (Escreva `[]` se vazio. Sem blocos markdown).
+3. Crie arquivos `.txt` simples para blindar quebras de shell:
+   - `.vitalia/temp_task.txt` (Nome da feature)
+   - `.vitalia/temp_p0.txt` (P0 aprovado)
+   - `.vitalia/temp_summary.txt` (Resumo)
+
+4. Execute o motor lendo os arquivos gerados:
+```bash
+python3 {{VITALIA_KIT_DIR}}/src/vitalia_context_engine.py --action end \
+  --task "$(cat .vitalia/temp_task.txt 2>/dev/null || echo 'Sem tarefa')" \
+  --p0 "$(cat .vitalia/temp_p0.txt 2>/dev/null || echo 'Sem P0')" \
+  --summary "$(cat .vitalia/temp_summary.txt 2>/dev/null || echo '')" \
+  --learnings-json "$(cat .vitalia/temp_learnings.json 2>/dev/null || echo '[]')" \
+  --decisions-json "$(cat .vitalia/temp_decisions.json 2>/dev/null || echo '[]')"
+```
+
+5. Após o comando rodar com sucesso, exclua APENAS os 5 arquivos temporários criados neste processo. NENHUM outro arquivo do repositório deve ser excluído.
+
+### 📦 Fase 3 — Commit do Repositório Raiz
+
+1. Limpe / verifique a raiz: `git status`
+2. Commit: `git add . && git commit -m "chore(session): encerramento de sessão"`
+*(Lembre-se: `.vitalia/memory/session/` é ignorado no repositório raiz e não será commitado aqui).*
+
+### 🗂️ Fase 4 — Encerramento
+
+Exiba para o usuário:
+`✅ Shard local atualizado. Rode /vitalia-session-consolidate para sincronizar as memórias (learnings/decisions) e renderizar o Dashboard na nuvem.`
+"""

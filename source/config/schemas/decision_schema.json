@@ -1,0 +1,10 @@
+{
+  "id": "(Gerado automaticamente pelo motor, ignore)",
+  "type": "decision",
+  "category": "ARQUITETURA ou PROJETO",
+  "decision": "Texto da decisão arquitetural",
+  "rationale": "Justificativa da decisão",
+  "alternatives": ["Opção rejeitada 1", "Opção rejeitada 2"],
+  "machine_id": "(Gerado automaticamente pelo motor, ignore)",
+  "timestamp": "(Gerado automaticamente pelo motor, ignore)"
+}

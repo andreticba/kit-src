@@ -1,0 +1,10 @@
+{
+  "machine_name": "Nome descritivo da máquina",
+  "machine_id": "8-char-hex-hash",
+  "mode": "auto",
+  "last_sync": "DD-MM-YYYY HH:MM:SS(GMT-04:00)",
+  "task": "Descrição em texto da tarefa principal da sessão",
+  "steps": ["Lista de", "atividades menores", "realizadas"],
+  "next_step": "Próximo passo a ser executado (P0)",
+  "status": "Concluído"
+}

@@ -1,0 +1,95 @@
+description = "Inicia sessão de trabalho recuperando contexto completo do projeto."
+
+[meta]
+version = "0.4.0"
+hardware_profile = "lightweight"
+domain_gates = []
+
+[hooks]
+before = []
+after = []
+
+[tools]
+required = ["read_file", "run_command"]
+optional = ["write_file"]
+
+[context]
+reads = [".vitalia/feature.json"]
+writes = []
+
+[transport]
+preferred = "redis"
+redis_key = "vitalia:workflow:session-start"
+file_path = ".vitalia/pipeline.json"
+session_shard = true
+
+
+[guardian]
+yaml_sources = ["constitution"]
+guardian_profile = "gp_session-start"
+
+prompt = """
+## User Input
+
+```text
+{{args}}
+```
+
+<!-- session-start.md | Atualizado pela Spec 3.1 -->
+---
+description: >
+  Inicia sessão de trabalho recuperando contexto completo do projeto. 
+  Apresenta estado atual, aprendizados pendentes e próximo passo (P0).
+---
+
+# /session-start — Início de Sessão (Spec 3.1)
+
+{{args}}
+
+---
+
+## Propósito
+
+Elimina o cold start. Em segundos você sabe exatamente onde o projeto está e o que fazer a seguir, lendo da Memória 3-Tier.
+
+---
+
+## Comportamento
+
+### Passo 1: Atualização da Nuvem (Git Pull)
+Antes de qualquer coisa, sincronize a base de contexto local com o repositório remoto:
+```bash
+git -C .vitalia/memory/session pull --rebase
+```
+*(Se o comando falhar informando "not a git repository" ou erro de auth, continue mesmo assim pois pode ser projeto novo).*
+
+### Passo 2: Inicialização/Consolidação do Motor de Contexto
+Verifique a existência da pasta `.vitalia/memory/session/data/`:
+- Se NÃO existir: execute `python3 {{VITALIA_KIT_DIR}}/src/vitalia_context_engine.py --action init`
+- Se EXISTIR: execute `python3 {{VITALIA_KIT_DIR}}/src/vitalia_context_engine.py --action consolidate`
+*(Isso garantirá que o Dashboard visual e os arquivos MD estejam reconstruídos).*
+
+### Passo 3: Ler o Dashboard e Estado
+O agente deve ler os seguintes arquivos em `.vitalia/memory/session/`:
+1. `SESSION_STATE.md` (Estado ativo e P0)
+2. `LEARNINGS.md` (Aprendizados que exigem atenção)
+3. `README.md` (Status das máquinas e Semáforo)
+
+### Passo 4: Apresentar Resumo ao Usuário
+
+```markdown
+## 📍 [Sessão Iniciada]
+
+**Feature ativa:** [Extraído de SESSION_STATE.md]
+**Semáforo de Sincronização:** [Status extraído de README.md]
+
+### 🎯 Próximo passo (P0)
+**[Extraído de SESSION_STATE.md]**
+
+### 📝 Notas / Aprendizados Recentes
+[Extraído de LEARNINGS.md - Liste apenas os não-processados]
+
+---
+**Deseja continuar com o item P0, ou tem outro foco para hoje?**
+```
+"""

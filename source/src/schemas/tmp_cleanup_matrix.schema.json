@@ -1,0 +1,120 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TmpCleanupMatrix",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "timestamp",
+    "active_session_date",
+    "total_files",
+    "total_bytes",
+    "dates",
+    "actions_available"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "default": "0.6.0"
+    },
+    "timestamp": {
+      "type": "string"
+    },
+    "active_session_date": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "total_files": {
+      "type": "integer"
+    },
+    "total_bytes": {
+      "type": "integer"
+    },
+    "formatted_total_size": {
+      "type": "string"
+    },
+    "dates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "date",
+          "is_today",
+          "file_count",
+          "total_size_bytes",
+          "formatted_size",
+          "files"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "date": {
+            "type": "string"
+          },
+          "is_today": {
+            "type": "boolean"
+          },
+          "file_count": {
+            "type": "integer"
+          },
+          "total_size_bytes": {
+            "type": "integer"
+          },
+          "formatted_size": {
+            "type": "string"
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "filename": {
+                  "type": "string"
+                },
+                "bytes": {
+                  "type": "integer"
+                },
+                "modified_at": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "actions_available": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "code",
+          "label",
+          "description",
+          "is_default"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "a",
+              "d",
+              "n",
+              "t"
+            ]
+          },
+          "label": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "is_default": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}

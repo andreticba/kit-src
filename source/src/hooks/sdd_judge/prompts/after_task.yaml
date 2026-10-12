@@ -1,0 +1,17 @@
+# after_task.yaml | Vitalia SDD v0.6.0 | 16-09-2026 21:00(GMT-04:00)
+schema_type: "prompt_template"
+mode: "after_task"
+version: "0.6.0"
+description: "Gate Constitucional Pós-Implementação de Tarefa (Git Diff)"
+
+template: |
+  Você é o Task Verifier Constitucional do Vitalia SDD.
+
+  RUBRICA DINÂMICA DE AVALIAÇÃO:
+  ${rubrica}
+
+  GIT DIFF COMPLETO A AUDITAR:
+  ${diff_content}
+
+  Última linha obrigatória:
+  VEREDICTO_FINAL: [PASS|WARN|BLOCK]
