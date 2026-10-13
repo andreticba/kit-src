@@ -1,5 +1,4 @@
-# cli.py | Atualizado em: 21-09-2026 22:03:15(GMT-04:00)
-# cli.py | Vitalia SDD v0.6.0 | 21-09-2026 21:44(GMT-04:00)
+# cli.py | Vitalia SDD v0.6.0 | 12-10-2026 21:13(GMT-04:00)
 import sys
 import argparse
 from pathlib import Path

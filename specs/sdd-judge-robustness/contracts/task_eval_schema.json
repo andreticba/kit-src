@@ -1,0 +1,49 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TaskEvaluationSchema",
+  "description": "Contrato unifilar estrito para avaliação atômica de tarefas no modo 1-a-1 do sdd_judge",
+  "type": "object",
+  "properties": {
+    "task_id": {
+      "type": "string",
+      "description": "Identificador da tarefa atômica (ex: T001, T002)"
+    },
+    "critique": {
+      "type": "string",
+      "description": "Análise crítica do juiz fundamentando conformidade ou violação"
+    },
+    "evidence": {
+      "type": "string",
+      "description": "Citação literal do trecho da tarefa comprovando o parecer"
+    },
+    "principles_violated": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Códigos dos princípios violados (ex: P01, P05). Vazio se PASS."
+    },
+    "verdict": {
+      "type": "string",
+      "enum": ["PASS", "WARN", "BLOCK"],
+      "description": "Veredito da tarefa"
+    },
+    "warn_severity": {
+      "type": "string",
+      "enum": ["NONE", "LOW", "MEDIUM", "EXTREME"],
+      "description": "Nível de severidade do aviso. 'EXTREME' bloqueia como BLOCK."
+    },
+    "suggested_fix": {
+      "type": "string",
+      "description": "Linha da tarefa corrigida para substituição direta se houver WARN ou BLOCK. Vazio se PASS."
+    }
+  },
+  "required": [
+    "task_id",
+    "critique",
+    "evidence",
+    "principles_violated",
+    "verdict",
+    "warn_severity",
+    "suggested_fix"
+  ],
+  "additionalProperties": false
+}

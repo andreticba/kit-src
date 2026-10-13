@@ -1,0 +1,49 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SectionEvaluationSchema",
+  "description": "Contrato estruturado para avaliação de seções do plan.md e spec.md integral",
+  "type": "object",
+  "properties": {
+    "section_id": {
+      "type": "string",
+      "description": "Nome ou identificador da seção (ex: 'ADRs', 'Arquitetura', 'Geral')"
+    },
+    "critique": {
+      "type": "string",
+      "description": "Análise crítica detalhada da conformidade da seção com a rubrica constitucional"
+    },
+    "evidence": {
+      "type": "string",
+      "description": "Trecho literal da seção comprovando o parecer"
+    },
+    "principles_violated": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Princípios violados (ex: P03, P11). Vazio se PASS."
+    },
+    "verdict": {
+      "type": "string",
+      "enum": ["PASS", "WARN", "BLOCK"],
+      "description": "Veredito da seção"
+    },
+    "warn_severity": {
+      "type": "string",
+      "enum": ["NONE", "LOW", "MEDIUM", "EXTREME"],
+      "description": "Severidade do aviso"
+    },
+    "suggested_fix": {
+      "type": "string",
+      "description": "Correção textual sugerida para a seção"
+    }
+  },
+  "required": [
+    "section_id",
+    "critique",
+    "evidence",
+    "principles_violated",
+    "verdict",
+    "warn_severity",
+    "suggested_fix"
+  ],
+  "additionalProperties": false
+}

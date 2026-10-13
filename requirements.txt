@@ -1,0 +1,25 @@
+# requirements.txt | AI-Control v0.0.1 | 12-10-2026 09:19(GMT-04:00)
+
+Django==6.1.*
+daphne==4.2.3
+celery==5.6.3
+redis>=5.0
+psycopg2-binary
+pgvector==0.5.0
+django-crypto-fields==1.0.1
+edc-constants==1.0.1
+tqdm>=4.66.0
+cryptography
+pydantic>=2.0
+pytest-django
+pytest-cov
+python-dotenv
+dj-database-url
+requests
+channels>=4,<5
+channels-redis>=4,<5
+drf-spectacular==0.30.0
+djangorestframework~=3.18.3
+djangorestframework-simplejwt~=5.3.1
+django-cors-headers~=4.3.1
+django-extensions==4.1

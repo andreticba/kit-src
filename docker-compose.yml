@@ -1,0 +1,121 @@
+# docker-compose.yml | Atualizado em: 27-09-2026 13:52:04(GMT-04:00)
+# vit.ia 2026.1
+services:
+  # Banco de Dados Principal com pgvector
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: ${DB_CONTAINER_NAME:-ai-control_db}
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      TZ: "America/Cuiaba"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+      - ./ai-control-core/db_init:/docker-entrypoint-initdb.d/
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis para Cache Semântico e Task Queue
+  redis:
+    image: "redis:alpine"
+    container_name: ${REDIS_CONTAINER_NAME:-ai-control_redis}
+    command: redis-server --requirepass ${REDIS_PASSWORD} --bind 0.0.0.0
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    restart: unless-stopped
+
+  # Motor de Inferência Ollama (GTX 1060 Optimized)
+  ollama:
+    image: ollama/ollama:0.5.12
+    container_name: ${OLLAMA_CONTAINER_NAME:-ai-control_ollama}
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "11434:11434"
+    restart: unless-stopped
+    environment:
+      - OLLAMA_HOST=0.0.0.0 # Expõe a API para a rede local (Notebook)
+      - OLLAMA_MAX_LOADED_MODELS=2
+      - OLLAMA_NUM_PARALLEL=2
+      - OLLAMA_KEEP_ALIVE=-1 # Mantém o modelo pinado na VRAM para evitar I/O no SSD SATA
+      - OLLAMA_FLASH_ATTENTION=0 # OBRIGATÓRIO: Desativa Flash Attention para a arquitetura Pascal (GTX 1060)
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  # # Interface Open WebUI
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: ${WEBUI_CONTAINER_NAME:-ai-control_open_webui}
+    restart: unless-stopped
+    ports:
+      - "4000:8080"
+    environment:
+      # Conexão com o Banco de Dados Principal e Vetorial
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?sslmode=disable
+      - VECTOR_DB=pgvector
+      - PGVECTOR_DB_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?sslmode=disable
+      # Conexões de Inferência e RAG
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - WEBUI_AUTH=True
+      - ENABLE_RAG=True
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    depends_on:
+      - db
+      - ollama
+
+  # Evolution API - WhatsApp Gateway
+  # ╔══════════════════════════════════════════════════════════════════╗
+  # ║  network_mode: "host"                                          ║
+  # ║                                                                ║
+  # ║  O container compartilha a pilha de rede da máquina (WSL2).    ║
+  # ║  Isso permite que o Evolution API:                             ║
+  # ║  - Envie webhooks para localhost:8000 (Django no host)         ║
+  # ║  - Acesse localhost:5432 (PostgreSQL) e localhost:6379 (Redis) ║
+  # ║                                                                ║
+  # ║  CONSEQUÊNCIAS:                                                ║
+  # ║  - "ports:" é desnecessário (portas já estão no host)          ║
+  # ║  - "depends_on:" é incompatível com network_mode: host         ║
+  # ║  - Nomes DNS internos (db, redis) não funcionam → localhost    ║
+  # ║                                                                ║
+  # ║  MIGRAÇÃO FUTURA:                                              ║
+  # ║  Quando o Django for conteinerizado, trocar por rede bridge    ║
+  # ║  e usar nomes de serviço (http://django:8000).                 ║
+  # ╚══════════════════════════════════════════════════════════════════╝
+  evolution-api:
+    image: evoapicloud/evolution-api:latest
+    container_name: ai-control_evolution_api
+    restart: unless-stopped
+    network_mode: "host"
+    environment:
+      - SERVER_PORT=8081
+      - SERVER_URL=${WHATS_GT_API_URL:-http://localhost:8081}
+      - DATABASE_PROVIDER=postgresql
+      - DATABASE_CONNECTION_URI=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:5432/${EVOLUTION_DB}?schema=evolution
+      - DATABASE_CONNECTION_CLIENT_NAME=evolution_api
+      - CACHE_REDIS_ENABLED=true
+      - CACHE_REDIS_URI=redis://:${REDIS_PASSWORD}@localhost:6379/1
+      - CACHE_REDIS_PREFIX_KEY=evolution
+      - AUTHENTICATION_API_KEY=${WHATS_GT_API_KEY:-ai-control_evolution_secret_123}
+      - WEBHOOK_GLOBAL_ENABLED=true
+      - WEBHOOK_GLOBAL_URL=${WHATS_GT_WEBHOOK_BASE_URL:-http://localhost:8000}/api/v1/webhook/whatsapp/?apikey=${WHATS_GT_API_KEY:-ai-control_evolution_secret_123}
+      - WEBHOOK_GLOBAL_EVENTS=MESSAGES_UPSERT,CONNECTION_UPDATE
+
+volumes:
+  postgres_data:
+  ollama_data:
+  open_webui_data:

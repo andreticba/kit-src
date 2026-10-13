@@ -1,5 +1,4 @@
-# gemini.py | Atualizado em: 21-09-2026 22:03:15(GMT-04:00)
-# gemini.py | Vitalia SDD v0.6.0 | 18-09-2026 15:42(GMT-04:00)
+# gemini.py | Vitalia SDD v0.6.0 | 12-10-2026 21:10(GMT-04:00)
 import os
 import sys
 import time
@@ -11,7 +10,7 @@ import hashlib
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, Any
 from pathlib import Path
-from sdd_judge.providers.base import LLMProvider
+from sdd_judge.providers.base import LLMProvider, LLMResponse
 
 try:
     import requests
@@ -152,8 +151,8 @@ class GeminiRESTProvider(LLMProvider):
             # P12: Resiliência de I/O de observabilidade
             print(f"⚠️ [GeminiRESTProvider] Falha ao gravar telemetria: {e}", file=sys.stderr)
 
-    def generate(self, prompt: str) -> Optional[str]:
-        """T010: Loop principal de geração com resiliência, Full Jitter, Fail-Fast e Telemetria P07."""
+    def generate(self, prompt: str, json_schema: Optional[Dict[str, Any]] = None) -> Optional[LLMResponse]:
+        """Loop principal de geração com resiliência, Full Jitter, Fail-Fast, Structured Output e Telemetria P07/P15."""
         if not _REQUESTS_OK:
             print("[GeminiRESTProvider] ⚠️ Pacote 'requests' não instalado.", file=sys.stderr)
             return None
@@ -165,9 +164,14 @@ class GeminiRESTProvider(LLMProvider):
 
         model = self._get_model()
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+        gen_config: Dict[str, Any] = {"temperature": 0.2}
+        if json_schema:
+            gen_config["responseMimeType"] = "application/json"
+            gen_config["responseSchema"] = json_schema
+
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {"temperature": 0.2}
+            "generationConfig": gen_config
         }
         headers = {"Content-Type": "application/json"}
 
@@ -182,12 +186,20 @@ class GeminiRESTProvider(LLMProvider):
                     usage_metadata = data.get("usageMetadata")
                     self._log_telemetry(model, 200, elapsed_ms, usage_metadata)
                     
+                    content_text = ""
                     candidates = data.get("candidates", [])
                     if candidates:
                         parts = candidates[0].get("content", {}).get("parts", [])
                         if parts:
-                            return parts[0].get("text", "")
-                    return ""
+                            content_text = parts[0].get("text", "")
+                    return LLMResponse(
+                        content=content_text,
+                        provider="Gemini",
+                        model=model,
+                        latency=elapsed_ms / 1000.0,
+                        status_code=200,
+                        raw_data=data
+                    )
 
                 elif resp.status_code in (429, 503):
                     error_json = None

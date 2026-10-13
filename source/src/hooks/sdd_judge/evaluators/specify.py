@@ -1,4 +1,4 @@
-# specify.py | Vitalia SDD v0.6.0 | 16-09-2026 21:00(GMT-04:00)
+# specify.py | Vitalia SDD v0.6.0 | 12-10-2026 21:11(GMT-04:00)
 import sys
 import re
 from typing import Optional
@@ -8,7 +8,7 @@ from sdd_judge.providers import run_inference_with_failover
 
 
 class SpecifyEvaluator(BaseEvaluator):
-    """Estratégia de auditoria constitucional de requisitos funcionais (spec.md)."""
+    """Estratégia de auditoria holística integral de requisitos funcionais (spec.md) (FR-001)."""
 
     def evaluate(self, target_content: str, feature_name: str) -> int:
         rubrica = self.build_rubric("specify")
@@ -37,7 +37,8 @@ class SpecifyEvaluator(BaseEvaluator):
         if current_block:
             fr_blocks.append("\n".join(current_block).strip())
 
-        itens = "\n\n".join(fr_blocks) if fr_blocks else target_content[:4000]
+        # Avaliação holística: sem truncamento arbitrário [:4000]
+        itens = "\n\n".join(fr_blocks) if fr_blocks else target_content.strip()
 
         prompt = load_prompt_template(
             "specify",
@@ -46,18 +47,28 @@ class SpecifyEvaluator(BaseEvaluator):
             itens=itens
         )
 
-        response = run_inference_with_failover(prompt)
-        if not response:
+        schema = self.load_contract_schema("section_eval_schema.json")
+        resp = run_inference_with_failover(prompt, json_schema=schema, task_type="reasoning")
+        if not resp or not resp.content:
             print("🚫 VEREDICTO FINAL: BLOCK (Sem resposta da inferência)", file=sys.stderr)
             return 1
 
-        print("--- PARECER DO JUIZ (GEMINI API) ---", file=sys.stderr)
-        print(response, file=sys.stderr)
-        print("------------------------------------", file=sys.stderr)
+        print(f"--- PARECER DO JUIZ [{resp.provider}: {resp.model} | {resp.latency:.2f}s] ---", file=sys.stderr)
+        
+        parsed = self.parse_structured_evaluation(resp)
+        if parsed.get("critique"):
+            print(f"Critique: {parsed['critique']}", file=sys.stderr)
+        if parsed.get("evidence"):
+            print(f"Evidence: {parsed['evidence']}", file=sys.stderr)
+        if parsed.get("suggested_fix"):
+            print(f"Suggested Fix: {parsed['suggested_fix']}", file=sys.stderr)
+        print("----------------------------------------------------------------", file=sys.stderr)
 
-        code = self.parse_verdict(response)
-        if code == 0:
-            print("✅ VEREDICTO FINAL: PASS", file=sys.stderr)
+        verdict = parsed.get("verdict", "BLOCK")
+        exit_code = parsed.get("exit_code", 1)
+
+        if exit_code == 0:
+            print(f"✅ VEREDICTO FINAL: {verdict}", file=sys.stderr)
         else:
-            print("🚫 VEREDICTO FINAL: BLOCK", file=sys.stderr)
-        return code
+            print(f"🚫 VEREDICTO FINAL: {verdict}", file=sys.stderr)
+        return exit_code
