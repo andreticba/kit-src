@@ -1,4 +1,4 @@
-# docker-compose.yml | Atualizado em: 27-09-2026 13:52:04(GMT-04:00)
+# docker-compose.yml | Atualizado em: 15-10-2026 12:53:04(GMT-04:00)
 # vit.ia 2026.1
 services:
   # Banco de Dados Principal com pgvector
@@ -33,7 +33,7 @@ services:
 
   # Motor de Inferência Ollama (GTX 1060 Optimized)
   ollama:
-    image: ollama/ollama:0.5.12
+    image: ollama/ollama:latest
     container_name: ${OLLAMA_CONTAINER_NAME:-ai-control_ollama}
     volumes:
       - ollama_data:/root/.ollama

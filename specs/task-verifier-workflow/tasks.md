@@ -1,0 +1,112 @@
+<!-- tasks.md | Vitalia SDD v0.6.0 | 16-10-2026 16:46(GMT-04:00) -->
+<!-- constitutional-status: APPROVED | auditor: red-team-vitalia | timestamp: 2026-10-16T16:46:00-04:00 | report: Relatório de inspeção.md -->
+
+# Tasks: Workflow de Verificação Constitucional de Tarefas & Universal Bootstrap
+
+**Spec**: [spec.md](file:///home/andre/projetos/assistidos/kit_src/specs/task-verifier-workflow/spec.md) | **Plan**: [plan.md](file:///home/andre/projetos/assistidos/kit_src/specs/task-verifier-workflow/plan.md)  
+**Gerado em**: 16-10-2026 16:45(GMT-04:00)
+
+---
+
+## MVP Scope
+
+> O MVP engloba **Phase 1 (Setup & Limpeza) + Phase 2 (Foundational: Bootstrap Seguro) + Phase 3 (US1: Desacoplamento spec-tasks) + Phase 4 (US2: task-verifier na IDE)**.  
+> Concluir o MVP entrega o instalador universal sem falhas de import, o desacoplamento de hooks em `spec-tasks` e o gate de verificação constitucional na IDE Antigravity com relatório de inspeção obrigatório e aprovação HITL soberana.
+
+---
+
+## Phase 0: Grounding & Environment
+
+*Verificações de ambiente e runtime local antes de qualquer alteração de código produtivo.*
+
+- [X] T000-A Ativar ambiente virtual Python: `source .venv/bin/activate`
+- [X] T000-B Verificar versão do interpretador Python: `python3 --version` (deve ser >= 3.10)
+- [X] T000-C Validar integridade das dependências instaladas no `.venv`: `pip check`
+- [X] T000-D Verificar resolução de ambiente via script canônico: `python3 source/src/kit_env_bootstrap.py`
+
+---
+
+## Phase 1: Setup & Higienização do Workspace
+
+*Isolamento de dependências e higienização de artefatos legados da tentativa descontinuada.*
+
+- [X] T001 [P] Isolar as dependências mínimas do Kit no arquivo `source/config/requirements-kit.txt`
+- [X] T002 [P] Remover o diretório legado e descontinuado de background workers `source/src/judge/`
+- [X] T003 [P] Arquivar ou remover testes unitários legados de workers e Redis em `tests/` incompatíveis com a nova arquitetura (`tests/test_judge_worker.py`, `tests/test_contest_worker.py`, `tests/test_refactor_worker.py`, `tests/test_distributed_orchestrator.py`)
+
+---
+
+## Phase 2: Foundational — Universal Bootstrap & Resolução de Imports
+
+*Garantir instalação portátil agnóstica para GitHub com resolução de paths e salvaguardas de arquivos locais.*
+
+- [X] T004 [P] Criar testes unitários para autodescoberta de `project_root` e injeção dinâmica de `sys.path` em `tests/test_kit_env_bootstrap.py`
+- [X] T005 Atualizar `source/src/kit_env_bootstrap.py` para padronizar a injeção do `.venv` local e do diretório do Kit sem dependência de caminhos absolutos
+- [X] T006 [P] Criar testes de integração para salvaguardas e criação de backups (`.env.bak` e `requirements.txt.bak`) em `tests/test_kit_bootstrap_safeguards.py`
+- [X] T007 Atualizar o script de instalação `kit-bootstrap.sh` para gerenciar `.venv` localmente em `./.venv`, exibir alertas no terminal e aplicar salvaguardas não-destrutivas em `.env` e `requirements.txt` (FR-007, FR-008)
+
+---
+
+## Phase 3: User Story 1 — Desacoplamento e Handoff do Planejamento (FR-006)
+
+**Story Goal**: Garantir que `/vitalia-spec-tasks` conclua a geração de tarefas sem loops síncronos e passe o bastão de forma clara para o auditor.  
+**Independent Test**: Executar `hook_runner` no `spec-tasks.toml` e validar que não dispara o validador quebrado em `[hooks].after`.  
+**Referência**: FR-006, SC-002
+
+- [X] T008 [P] [US1] Criar teste unitário para validar estrutura e ausência de hook síncrono `[hooks].after` em `tests/test_spec_tasks_config.py`
+- [X] T009 [US1] Modificar a extensão `source/extensions/spec-tasks.toml` removendo o hook `[hooks].after` e adicionando orientação formal de handoff para `/vitalia-task-verifier` em seu prompt
+
+---
+
+## Phase 4: User Story 2 — Workflow de Verificação Constitucional na IDE (FR-001, FR-002, FR-003, FR-004, FR-005)
+
+**Story Goal**: Permitir que o desenvolvedor execute `/vitalia-task-verifier` na IDE Antigravity, recebendo o `Relatório de inspeção.md` detalhado e controlando a aprovação soberana no chat antes do carimbo.  
+**Independent Test**: Executar `vitalia_hook_runner.py` para `task-verifier.toml`, verificar geração de Context Lifting em `~/.vitalia/tmp/`, produção do relatório de inspeção e carimbo após confirmação.  
+**Referência**: FR-001, FR-002, FR-003, FR-004, FR-005, SC-001, SC-003, SC-004, SC-005
+
+- [X] T010 [P] [US2] Criar testes unitários para compilação do contexto dinâmico do `task-verifier` via Guardian em `tests/test_task_verifier_context.py`
+- [X] T011 [US2] Criar a extensão `source/extensions/task-verifier.toml` configurada com extração dinâmica de regras via Guardian §11 Context Lifting (FR-001, FR-002)
+- [X] T012 [US2] Estruturar o prompt comportamental do Sub-Agente Red Team em `source/extensions/task-verifier.toml` exigindo a geração de `specs/{feature}/Relatório de inspeção.md` e a pausa mandatória para confirmação no chat (FR-003, FR-004)
+- [X] T013 [US2] Implementar na extensão a regra de transação atômica que cria `specs/{feature}/tasks.md.bak` e insere o carimbo `<!-- constitutional-status: APPROVED -->` após consentimento no chat (FR-005)
+- [X] T014 [P] [US2] Criar teste de integração de ponta a ponta simulando o ciclo completo do `task-verifier` em `tests/test_task_verifier_lifecycle.py`
+
+---
+
+## Phase 5: Polish, Sincronização & Validação Final
+
+*Consolidação no ambiente funcional do usuário e validação da suite de testes.*
+
+- [X] T015 Sincronizar os arquivos novos e modificados de `source/` para o diretório funcional `~/.vitalia/`
+- [X] T016 Executar suite completa de testes automatizados via `pytest` no `.venv` local para garantir zero regressões
+- [X] T017 Executar validação de sanity-check nos comandos `/vitalia-spec-tasks` e `/vitalia-task-verifier` no diretório `.agents/skills/`
+
+---
+
+## Dependency Graph
+
+```
+Phase 0 (Environment)
+       │
+       ▼
+Phase 1 (Setup & Limpeza)
+       │
+       ▼
+Phase 2 (Foundational: Universal Bootstrap)
+       │
+       ▼
+Phase 3 (US1: Desacoplamento spec-tasks)
+       │
+       ▼
+Phase 4 (US2: Workflow task-verifier na IDE)
+       │
+       ▼
+Phase 5 (Polish & Sincronização)
+```
+
+## Parallel Execution
+
+As tarefas marcadas com `[P]` podem ser desenvolvidas ou executadas em paralelo dentro da mesma fase, pois atuam sobre arquivos isolados e sem dependências mútuas:
+- Na Phase 1: T001, T002 e T003.
+- Na Phase 2: T004 e T006.
+- Na Phase 3: T008.
+- Na Phase 4: T010 e T014.

@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vitalia.ai/schemas/sdd/task-envelope.json",
+  "title": "TaskEnvelope",
+  "description": "Envelope contextual estruturado para eliminação de falsos positivos na avaliação de tarefas por SLMs/LLMs",
+  "type": "object",
+  "required": [
+    "task_id",
+    "raw_line",
+    "phase_name",
+    "user_story",
+    "target_component",
+    "negative_scope_flags"
+  ],
+  "properties": {
+    "task_id": {
+      "type": "string",
+      "pattern": "^T[0-9]{3,4}(?:-[A-Z]+)?$",
+      "description": "Identificador atômico da tarefa (ex: T001, T025, T000-A)"
+    },
+
+    "raw_line": {
+      "type": "string",
+      "description": "Linha bruta original extraída do arquivo tasks.md"
+    },
+    "phase_name": {
+      "type": "string",
+      "description": "Nome da fase à qual a tarefa pertence no plano"
+    },
+    "user_story": {
+      "type": "object",
+      "required": ["id", "title"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^US[0-9]+$",
+          "description": "ID da User Story associada à tarefa"
+        },
+        "title": {
+          "type": "string",
+          "description": "Título resumido da User Story"
+        },
+        "acceptance_criteria": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Lista de critérios de aceite vinculados à User Story"
+        }
+      }
+    },
+    "target_component": {
+      "type": "string",
+      "description": "Caminho do arquivo ou componente principal afetado pela tarefa"
+    },
+    "test_task_predecessor": {
+      "type": ["object", "null"],
+      "properties": {
+        "task_id": {
+          "type": "string",
+          "pattern": "^T[0-9]{3,4}(?:-[A-Z]+)?$"
+        },
+
+        "raw_line": {
+          "type": "string"
+        },
+        "is_completed": {
+          "type": "boolean"
+        }
+      },
+      "description": "Tarefa predecessora de teste associada que atesta conformidade com P05 (Test-First)"
+    },
+    "negative_scope_flags": {
+      "type": "object",
+      "required": ["contains_secrets", "touches_security_core", "production_deployment"],
+      "properties": {
+        "contains_secrets": {
+          "type": "boolean",
+          "description": "Indica se o texto da tarefa contém secrets, tokens ou chaves reais (violação P06)"
+        },
+        "touches_security_core": {
+          "type": "boolean",
+          "description": "Indica se a tarefa modifica subsistemas criptográficos ou de autenticação central"
+        },
+        "production_deployment": {
+          "type": "boolean",
+          "description": "Indica se a tarefa envolve automação ou release em ambiente produtivo"
+        }
+      }
+    },
+    "contextual_files_referenced": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Lista de arquivos ou diretórios correlacionados para validação do Juiz"
+    }
+  },
+  "additionalProperties": false
+}

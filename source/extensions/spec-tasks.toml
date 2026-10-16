@@ -8,7 +8,7 @@ model_profile    = "flash"
 
 [hooks]
 before = ["python3 {{VITALIA_KIT_DIR}}/src/hooks/scan_environment.py"]
-after  = ["python3 {{VITALIA_KIT_DIR}}/src/hooks/sdd_judge.py --mode tasks {{FEATURE_DIR}}/tasks.md"]
+after  = []
 
 [tools]
 required = ["write_file", "read_file"]
@@ -177,23 +177,14 @@ Phase 1 → Phase 2 → Phase 3 (US1) → Phase N
 Tasks marcadas [P] dentro da mesma fase podem ser executadas simultaneamente.
 ```
 
-### Passo 5: Gate Constitucional — SDDJudge (tasks)
+### Passo 5: Handoff para Auditoria Constitucional (/vitalia-task-verifier)
 
-Antes de apresentar o tasks.md ao usuário, execute o gate constitucional:
+Ao concluir a escrita do `tasks.md`, **NÃO** realize auto-aprovação de tarefas.
+O pipeline desacopla o momento criativo do planejamento da auditoria de integridade.
 
-```bash
-python3 ~/.vitalia/src/hooks/sdd_judge.py --mode tasks specs/{FEATURE}/tasks.md
-```
-
-- **Exit code 0** (PASS ou WARN): tasks.md aprovado para execução. Prosseguir
-  para os hooks pós-execução.
-- **Exit code 1** (BLOCK): **BLOQUEAR**. Exibir o veredicto completo com
-  destaque vermelho. Corrigir os T### bloqueados e reexecutar o gate antes
-  de avançar para o Passo 6.
-
-### Passo 6: Verificar hooks `after_tasks`
-
-O hook `/vitalia-spec-analyze` (se `optional: false`) executa automaticamente aqui.
+Apresente o resumo das tarefas geradas e oriente expressamente o desenvolvedor:
+"Tarefas decompostas com sucesso em `specs/{FEATURE}/tasks.md`.
+Próximo passo: execute `/vitalia-task-verifier` para realizar a auditoria adversarial das tarefas, gerar o `Relatório de inspeção.md` e obter a aprovação constitucional antes de implementar."
 
 ### Passo 6: Relatório de conclusão
 
@@ -210,7 +201,7 @@ Paralelismo: M tasks marcadas [P]
 FRs cobertos: FR-001 ✅, FR-002 ✅
 FRs sem cobertura: (nenhum) / FR-XXX ⚠️
 
-Próximo passo: /vitalia-spec-analyze (automático) → HITL → /vitalia-spec-implement
+Próximo passo: /vitalia-task-verifier (Auditoria Constitucional e HITL)
 ```
 
 ---

@@ -1,0 +1,10 @@
+# requirements-kit.txt | Vitalia SDD v0.6.0 | 16-10-2026 16:50(GMT-04:00)
+# Dependências essenciais para execução do Vitalia Kit
+
+pydantic>=2.0.0
+pyyaml>=6.0.0
+tomli>=2.0.0;python_version<'3.11'
+python-dotenv>=1.0.0
+requests>=2.31.0
+redis>=5.0.0
+pytest>=7.4.0
