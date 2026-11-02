@@ -1,4 +1,4 @@
-# gemini.py | Vitalia SDD v0.6.0 | 12-10-2026 21:10(GMT-04:00)
+# gemini.py | Vitalia SDD v0.6.0 | 02-11-2026 12:05(GMT-04:00)
 import os
 import sys
 import time
@@ -151,6 +151,29 @@ class GeminiRESTProvider(LLMProvider):
             # P12: Resiliência de I/O de observabilidade
             print(f"⚠️ [GeminiRESTProvider] Falha ao gravar telemetria: {e}", file=sys.stderr)
 
+    def _adapt_schema_for_gemini(self, schema: Any) -> Any:
+        """Adapta o JSON Schema canônico para o subconjunto OpenAPI 3.0 Schema exigido pela Gemini REST API."""
+        if not isinstance(schema, dict):
+            return schema
+
+        # Campos rejeitados pelo compilador de generationConfig.responseSchema do Gemini REST (HTTP 400)
+        unsupported_keys = {"$schema", "$id", "$ref", "title", "additionalProperties", "definitions", "$defs"}
+        adapted: Dict[str, Any] = {}
+
+        for k, v in schema.items():
+            if k in unsupported_keys:
+                continue
+            if k == "properties" and isinstance(v, dict):
+                adapted[k] = {prop_name: self._adapt_schema_for_gemini(prop_val) for prop_name, prop_val in v.items()}
+            elif k == "items" and isinstance(v, dict):
+                adapted[k] = self._adapt_schema_for_gemini(v)
+            elif isinstance(v, dict):
+                adapted[k] = self._adapt_schema_for_gemini(v)
+            else:
+                adapted[k] = v
+
+        return adapted
+
     def generate(self, prompt: str, json_schema: Optional[Dict[str, Any]] = None) -> Optional[LLMResponse]:
         """Loop principal de geração com resiliência, Full Jitter, Fail-Fast, Structured Output e Telemetria P07/P15."""
         if not _REQUESTS_OK:
@@ -167,7 +190,7 @@ class GeminiRESTProvider(LLMProvider):
         gen_config: Dict[str, Any] = {"temperature": 0.2}
         if json_schema:
             gen_config["responseMimeType"] = "application/json"
-            gen_config["responseSchema"] = json_schema
+            gen_config["responseSchema"] = self._adapt_schema_for_gemini(json_schema)
 
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],

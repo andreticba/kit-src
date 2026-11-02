@@ -158,16 +158,32 @@ privacidade de usuários ou credenciais:
 
 ## 📋 Finalização do Ciclo (apenas após consenso completo)
 
-Quando todas as decisões estiverem tomadas:
+Quando todas as decisões estiverem tomadas e validadas com o usuário:
 
-1. Gerar `research-brainstorming.md` no diretório da feature ativa
-   (ou em `specs/` se a feature ainda não tiver diretório) contendo:
-   - Resumo das decisões tomadas
-   - Rastro de Pesquisa: `| # | Afirmação | Verificado? | Fonte | Data |`
-   - Link para o arquivo no output final
+1. **Gerar Síntese de Concepção em Markdown:**
+   Escrever o arquivo `research-brainstorming.md` no diretório da feature ativa
+   (ex: `specs/<feature>/research-brainstorming.md` ou em `specs/`) contendo:
+   - Resumo Executivo das decisões tomadas e trade-offs acordados
+   - Requisitos funcionais preliminares e escopo delimitado (com ideias estacionadas)
+   - Rastro de Pesquisa e Grounding: `| # | Afirmação | Verificado? | Fonte | Data |`
+   - Link clicável para o arquivo gerado no output final
 
-2. Emitir handoff ao pipeline SDD via `brainstorming_to_route`:
-   Orientar o usuário a executar `/vitalia-spec-specify` para formalizar a spec.
-   **Nunca implementar código diretamente a partir do brainstorming.**
+2. **Gerar Handoff Local Progressivo (Direction: Forward):**
+   Executar o utilitário de handoff para registrar a transição determinística:
+   ```bash
+   python3 ~/.vitalia/src/vitalia_handoff.py create \
+     --source "brainstorming" \
+     --target "route" \
+     --direction "forward" \
+     --intent "brainstorming_to_route" \
+     --input "<user_input>" \
+     --summary "<feature_dir>/research-brainstorming.md" \
+     --domain "<dominio_detectado>" \
+     --feature "<feature_dir>"
+   ```
 
+3. **Encaminhamento ao Despachante Oficial:**
+   Apresentar o link da síntese gerada e orientar expressamente o usuário:
+   `Síntese de concepção concluída! Execute /vitalia-route para despachar para o especialista adequado.`
+   **Regra de Inviolabilidade:** O Brainstorming NUNCA envia direto para `/vitalia-spec-specify` nem gera código. O despacho de especialistas é competência exclusiva do `/vitalia-route`.
 """

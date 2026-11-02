@@ -1,31 +1,55 @@
-# agents_catalog.yaml | Atualizado em: 08-09-2026 17:40:17(GMT-04:00)
-# ~/.vitalia/kit/profiles/agents_catalog.yaml
-# Atualizado em: 08-09-2026 15:36(GMT-04:00)
+# agents_catalog.yaml | Vitalia SDD v0.6.0 | 20-10-2026 09:50(GMT-04:00)
+# Catálogo completo dos agentes especialistas do ecossistema Vitalia SDD (FR-008, FR-009)
 
 schema_type:    "agents_catalog"
-schema_version: "0.1.0"
+schema_version: "0.6.0"
 description:    "Catálogo completo dos agentes especialistas do ecossistema Vitalia SDD"
 
 agents:
+  # Agente com workflow executável em extensions/ (status: active)
+  - id:          "medical-gate"
+    name:        "Medical Gate"
+    emoji:       "🩺"
+    status:      "active"
+    gates:       ["route", "session-start", "session-end", "medical_gate"]
+    command:     "/vitalia-medical-gate"
+    role:        "Avaliação de risco clínico e HITL médico"
+    model_hint:  "lightweight"
+    sub_agents: []
+    data_inputs:
+      - type:    "spec_content"
+    data_outputs:
+      - type:    "risk_report"
+        format:  "markdown"
+        status:  "DRAFT"
+    queue_key:   "vitalia:agents:medical-gate"
+    hitl_required: true
+    description: |
+      Avalia risco clínico de specs e implementações, verifica faixas de referência
+      de biomarcadores e garante friction-for-safety em decisões médicas.
+      Todo output é DRAFT até aprovação de profissional de saúde.
+
+  # Agentes Conceituais / Workflows Futuros do Kit (status: planned)
   - id:          "design-thinking"
     name:        "Design Thinking Facilitator"
     emoji:       "🎨"
+    status:      "planned"
     gates:       ["route", "session-start", "session-end"]
     command:     "/vitalia-design-thinking"
     role:        "Facilitador de workshops, PRDs e descoberta humana"
-    model_hint:  "lightweight"   # pode usar qwen3:4b no notebook
+    model_hint:  "lightweight"
     sub_agents:
       - "persona-builder"
       - "hmw-generator"
       - "csd-manager"
       - "prd-synthesizer"
     data_inputs:
-      - type: "none"             # não precisa de arquivos de entrada para começar
+      - type: "none"
     data_outputs:
       - type:    "artifact"
         path:    "docs/design/"
         format:  "markdown"
-    queue_key:   "vitalia:agents:design-thinking"   # Redis key para fila de tarefas
+    queue_key:   "vitalia:agents:design-thinking"
     description: |
       Conduz workshops de Design Thinking (Duplo Diamante), elabora PRDs executivos,
       mapas de empatia, declarações HMW e personas. Serve workshops acadêmicos na UFMT
@@ -34,6 +58,7 @@ agents:
   - id:          "literature-curator"
     name:        "Literature Curator"
     emoji:       "📚"
+    status:      "planned"
     gates:       ["route", "session-start", "session-end"]
     command:     "/vitalia-literature-curator"
     role:        "Guardião do acervo e ingestão científica"
@@ -46,7 +71,7 @@ agents:
     data_inputs:
       - type:    "directory"
         path:    ".vitalia/memory/data_storage/amostra/"
-        watch:   true            # monitora novos PDFs via CAFe/UFMT
+        watch:   true
       - type:    "directory"
         path:    ".vitalia/memory/data_storage/papers/"
     data_outputs:
@@ -64,56 +89,30 @@ agents:
   - id:          "visual-creator"
     name:        "Visual Creator"
     emoji:       "🖼️"
+    status:      "planned"
     gates:       ["route", "session-end"]
     command:     "/vitalia-visual-creator"
     role:        "Geração visual híbrida e prototipação"
-    model_hint:  "heavy"         # Gemini 2.5 Flash Image (cloud) ou Diffusers (local)
+    model_hint:  "heavy"
     sub_agents:
       - "prompt-visual-optimizer"
       - "image-backend-router"
       - "artifact-embedder"
     data_inputs:
-      - type:    "description"   # recebe prompt textual
+      - type:    "description"
     data_outputs:
       - type:    "directory"
         path:    ".vitalia/memory/data_storage/images/"
         format:  "webp|png"
-    backends:
-      - name:    "gemini-flash"
-        model:   "gemini-2.5-flash-image"
-        privacy: "cloud"         # dados vão para Google
-      - name:    "local-diffusers"
-        model:   "stable-diffusion-xl"
-        privacy: "local"         # LGPD compliant, offline
     queue_key:   "vitalia:agents:visual-creator"
     description: |
       Gera personas fotorrealistas, wireframes de Design Thinking e infográficos clínicos.
       Roteia automaticamente entre backend Gemini (qualidade) e Diffusers local (privacidade).
 
-  - id:          "medical-gate"
-    name:        "Medical Gate"
-    emoji:       "🩺"
-    gates:       ["route", "session-start", "session-end", "medical_gate"]
-    command:     "/vitalia-medical-gate"
-    role:        "Avaliação de risco clínico e HITL médico"
-    model_hint:  "lightweight"
-    sub_agents: []
-    data_inputs:
-      - type:    "spec_content"  # recebe conteúdo de spec.md para avaliar risco
-    data_outputs:
-      - type:    "risk_report"
-        format:  "markdown"
-        status:  "DRAFT"         # sempre DRAFT até aprovação humana
-    queue_key:   "vitalia:agents:medical-gate"
-    hitl_required: true          # nunca executa sem aprovação humana explícita
-    description: |
-      Avalia risco clínico de specs e implementações, verifica faixas de referência
-      de biomarcadores e garante friction-for-safety em decisões médicas.
-      Todo output é DRAFT até aprovação de profissional de saúde.
-
   - id:          "architect"
     name:        "Vitalia Architect"
     emoji:       "🏛️"
+    status:      "planned"
     gates:       ["route", "brainstorming", "session-end"]
     command:     "/vitalia-architect"
     role:        "Transição de consensos para o pipeline SDD formal"
@@ -131,3 +130,88 @@ agents:
       Converte consensos do brainstorming e Design Thinking em specs formais do pipeline
       SDD (spec-specify → spec-plan → spec-tasks → spec-implement). Cria ADRs e
       documenta decisões arquiteturais.
+
+  # Especialistas do ecossistema AI-Control (FR-009 — status: planned)
+  - id:          "master-ai-control"
+    name:        "Master AI-Control"
+    emoji:       "👑"
+    status:      "planned"
+    gates:       ["route", "session-start", "session-end"]
+    command:     "/vitalia-master-ai-control"
+    role:        "Arquiteto e Maestro do Projeto"
+    model_hint:  "frontier"
+    sub_agents: []
+    queue_key:   "vitalia:agents:master-ai-control"
+    description: |
+      Arquiteto-chefe do ecossistema AI-Control. Orquestra requisitos cross-system,
+      arbitra decisões técnicas e garante alinhamento estratégico da solução.
+
+  - id:          "django-stark"
+    name:        "Django-Stark"
+    emoji:       "⚡"
+    status:      "planned"
+    gates:       ["route"]
+    command:     "/vitalia-django-stark"
+    role:        "Especialista Backend Python e Django"
+    model_hint:  "lightweight"
+    sub_agents: []
+    queue_key:   "vitalia:agents:django-stark"
+    description: |
+      Especialista em arquitetura backend, Django, Django REST Framework, Celery,
+      Redis, modelagem relacional PostgreSQL, autenticação e performance de APIs.
+
+  - id:          "react-vinci"
+    name:        "React-Vinci"
+    emoji:       "🎨"
+    status:      "planned"
+    gates:       ["route"]
+    command:     "/vitalia-react-vinci"
+    role:        "Especialista Frontend e UI"
+    model_hint:  "lightweight"
+    sub_agents: []
+    queue_key:   "vitalia:agents:react-vinci"
+    description: |
+      Especialista em arquitetura frontend, Next.js, React, TypeScript, Tailwind CSS,
+      gerenciamento de estado, acessibilidade e integração fluida com APIs backend.
+
+  - id:          "infra-nomad"
+    name:        "Infra-Nomad"
+    emoji:       "🐳"
+    status:      "planned"
+    gates:       ["route"]
+    command:     "/vitalia-infra-nomad"
+    role:        "Especialista em DevOps e Infraestrutura"
+    model_hint:  "lightweight"
+    sub_agents: []
+    queue_key:   "vitalia:agents:infra-nomad"
+    description: |
+      Guardião da infraestrutura conteinerizada, Docker Compose, redes isoladas,
+      volumes persistentes, variáveis de ambiente seguras e pipelines de CI/CD.
+
+  - id:          "cortex-analyst"
+    name:        "Cortex-Analyst"
+    emoji:       "🧠"
+    status:      "planned"
+    gates:       ["route"]
+    command:     "/vitalia-cortex-analyst"
+    role:        "Especialista em Dados, IA e RAG"
+    model_hint:  "heavy"
+    sub_agents: []
+    queue_key:   "vitalia:agents:cortex-analyst"
+    description: |
+      Especialista em pipelines de ingestão de dados, chunking, modelos de embeddings
+      locais/cloud, busca vetorial com pgvector e engenharia de contexto para LLMs.
+
+  - id:          "figma-maestro"
+    name:        "Figma-Maestro"
+    emoji:       "✨"
+    status:      "planned"
+    gates:       ["route"]
+    command:     "/vitalia-figma-maestro"
+    role:        "Especialista em Design System e UX"
+    model_hint:  "lightweight"
+    sub_agents: []
+    queue_key:   "vitalia:agents:figma-maestro"
+    description: |
+      Arquiteto de interfaces, design tokens, micro-interações, consistência visual,
+      componentes reutilizáveis e tradução de wireframes em especificações de UI.

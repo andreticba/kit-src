@@ -33,6 +33,7 @@
         "ttl_seconds",
         "source_workflow",
         "target_workflow",
+        "direction",
         "machine_id",
         "status"
       ],
@@ -57,6 +58,15 @@
         "target_workflow": {
           "type": "string",
           "description": "Workflow receptor do handoff"
+        },
+        "direction": {
+          "type": "string",
+          "enum": [
+            "forward",
+            "reverse",
+            "fallback"
+          ],
+          "description": "Direção da transição de contexto: forward (progressivo), reverse (retorno de especialista ou escalação invertida) ou fallback (clarificação prévia). Entrada direta do usuário assume 'forward'."
         },
         "machine_id": {
           "type": "string",

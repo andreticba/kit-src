@@ -173,6 +173,12 @@ def main():
         help="Input textual do usuário (C1: injetado em guardian_json.session_context.user_input)."
     )
 
+    # Normaliza defensivamente --args <val> para --args=<val> quando <val> inicia com hífen
+    for idx in range(len(sys.argv) - 1):
+        if sys.argv[idx] == "--args" and sys.argv[idx + 1].startswith("-"):
+            sys.argv[idx] = f"--args={sys.argv.pop(idx + 1)}"
+            break
+
     args = parser.parse_args()
 
     # ── 1. Verificar existência do arquivo TOML ──────────────────────────────
@@ -194,6 +200,30 @@ def main():
 
     # Nome do workflow = basename sem extensão (ex: "brainstorming")
     workflow_name = Path(args.file).stem
+
+    # ── 3.1. T007: Validação pré-hook de handoff local (se presente) ────────
+    if args.phase == "before":
+        try:
+            import importlib.util
+            vh_path = Path(kit_dir) / "src" / "vitalia_handoff.py"
+            if vh_path.exists():
+                spec = importlib.util.spec_from_file_location("vitalia_handoff", str(vh_path))
+                if spec and spec.loader:
+                    vh_mod = importlib.util.module_from_spec(spec)
+                    spec.loader.exec_module(vh_mod)
+                    resolve_fn = getattr(vh_mod, "resolve_storage_dir", None)
+                    handoff_storage = resolve_fn(start=Path(cwd), lenient=True) if resolve_fn else None
+                    if handoff_storage:
+                        pending_h = vh_mod.get_latest_pending_handoff(storage_dir=handoff_storage, target_workflow=workflow_name)
+                    if pending_h:
+                        payload = vh_mod.validate_handoff_file(pending_h)
+                        direction = payload.get("envelope", {}).get("direction")
+                        h_id = payload.get("envelope", {}).get("handoff_id", "")[:8]
+                        if direction not in ("forward", "reverse", "fallback"):
+                            raise ValueError(f"Handoff {pending_h.name} com direction inválida: {direction}")
+                        print(f"[Hook Runner] 📦 Handoff validado com sucesso (id={h_id}, direction={direction})", file=sys.stderr)
+        except Exception as e:
+            print(f"[Hook Runner] ⚠️ Validação pré-hook de handoff: {e}", file=sys.stderr)
 
     # ── 4. Executar hooks da fase solicitada ─────────────────────────────────
     if args.phase in ["before", "after"]:
@@ -243,6 +273,8 @@ def main():
     # O payload é construído e adicionado ao dict 'data' antes do json.dumps().
     guardian_config = data.get("guardian", {})
     if guardian_config:
+        if "hardware_profile" not in guardian_config and "hardware_profile" in data.get("meta", {}):
+            guardian_config["hardware_profile"] = data["meta"]["hardware_profile"]
         print(f"[Hook Runner] §11 — Construindo payload Guardian para '{workflow_name}'...", file=sys.stderr)
         guardian_payload = _build_guardian_payload(
             guardian_config, workflow_name, cwd,

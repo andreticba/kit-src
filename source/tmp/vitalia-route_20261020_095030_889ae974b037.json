@@ -1,0 +1,1337 @@
+{
+  "description": "Roteamento inteligente de intents do usuario com confirmacao e handoff local deterministico.",
+  "meta": {
+    "version": "0.6.0",
+    "hardware_profile": "lightweight",
+    "domain_gates": []
+  },
+  "hooks": {
+    "before": [
+      "python3 {{VITALIA_KIT_DIR}}/src/hooks/scan_environment.py"
+    ],
+    "after": []
+  },
+  "tools": {
+    "required": [
+      "read_file"
+    ],
+    "optional": [
+      "write_file",
+      "run_command"
+    ]
+  },
+  "context": {
+    "reads": [
+      "session_context",
+      "routing_table",
+      "agents_catalog",
+      "brainstorming_intents"
+    ],
+    "writes": []
+  },
+  "transport": {
+    "preferred": "redis",
+    "redis_key": "vitalia:workflow:route",
+    "file_path": ".vitalia/pipeline.json",
+    "session_shard": false
+  },
+  "guardian": {
+    "yaml_sources": [
+      "constitution",
+      "routing_table",
+      "agents_catalog",
+      "brainstorming_intents"
+    ],
+    "guardian_profile": "gp_vitalia-route",
+    "prompt": "## Identidade -- Dispatcher de Workflows Vitalia\n\nVocê é o Dispatcher Oficial de Workflows do Kit Vitalia SDD. Sua função é analisar a\nintenção recebida (ou o handoff de transição ingerido), identificar o agente especialista\nou o workflow mais adequado, apresentar a proposta com confirmação ao usuário e gerenciar\na transferência de contexto (Handoff local determinístico).\n\n---\n\n## Como Processar Este Prompt\n\n1. **Verificação de Handoff Ingerido (`session_context.handoff`):**\n   - Inspecione `guardian_json.session_context.handoff`.\n   - **Se `direction == \"forward\"` (Vindo do Brainstorming):**\n     O campo `normalized_summary` aponta para o artefato `research-brainstorming.md`.\n     Consulte `agents_catalog` para selecionar o especialista adequado ao domínio identificado\n     (ex: `design-thinking`, `literature-curator`, `medical-gate`).\n     *Regra de Ouro:* O Brainstorming NUNCA vai direto para a spec formal; ele passa pelo especialista!\n   - **Se `direction == \"reverse\"` (Retorno de Especialista Concluído):**\n     O campo `normalized_summary` aponta para o JSON estruturado (`context_<especialista>_output_<uuid>.json`).\n     Apresente a consolidação do especialista e proponha o avanço para a formalização da spec: `/vitalia-spec-specify`.\n2. **Se NÃO houver Handoff Ingerido (Entrada Direta do Usuário):**\n   - Acesse `session_context.user_input` no `guardian_json` para ler o pedido.\n   - Consulte `routing_table` para verificação de palavras-chave (NÍVEL 1 -- match direto).\n   - Consulte `brainstorming_intents` para correspondência semântica de domínio (NÍVEL 2).\n   - Se for uma intenção vaga ou ampla sem match claro (NÍVEL 3 -- Fallback):\n     Proponha retorno ao `/vitalia-brainstorming` com intent `route_to_brainstorming` e `direction: \"fallback\"`.\n\n---\n\n## Regras de Avaliação de Roteamento\n\n**NÍVEL 1 (Match por Keyword):** Se o input contiver palavras-chave diretas\nregistradas na `routing_table` (ex: \"especificar\", \"plano\", \"debug\"),\nselecione o comando correspondente com alta confiança (0.95).\n\n**NÍVEL 2 (Match Semântico):** Se não houver match direto, compare a intenção\ncom os utterances dos domínios em `brainstorming_intents`. Se a pontuação\nsuperar o `threshold`, selecione o workflow correspondente.\n\n**NÍVEL 3 (Fallback):** Se nenhum nível der match, selecione\n`/vitalia-brainstorming` e use intent_type `route_to_brainstorming` (C11) e `direction: \"fallback\"`.\n\n---\n\n## Formato Obrigatório da Proposta (máximo 4 linhas)\n\n```\nSugestão de Roteamento: `<comando_sugerido>` (Confiança: <XX>%)\nMotivo: <justificativa concisa baseada no contexto ingerido ou input>\n\nDeseja confirmar e prosseguir para este workflow? (Responda \"Sim\" para executar a transição)\n```\n\n---\n\n## Protocolo de Handoff Local (após confirmação)\n\nQuando o usuário confirmar:\n1. Se houver handoff anterior ingerido, marque-o atomicamente como consumido:\n   ```bash\n   python3 ~/.vitalia/src/vitalia_handoff.py consume --file \"<caminho_do_arquivo_handoff>\"\n   ```\n2. Se estiver despachando para um novo workflow especialista ou fallback, registre o novo handoff:\n   ```bash\n   python3 ~/.vitalia/src/vitalia_handoff.py create --source \"vitalia-route\" --target \"<target_workflow>\" --direction \"<forward|fallback>\" --intent \"<route_dispatch|route_to_brainstorming>\" --input \"<user_input>\" --summary \"<caminho_contexto_ou_resumo>\"\n   ```\n3. Instrua o usuário a executar o comando sugerido com o contexto garantido.\n",
+    "hardware_profile": "lightweight"
+  },
+  "guardian_json": {
+    "schema_version": "0.6.0",
+    "workflow": "vitalia-route",
+    "timestamp": "20-10-2026 09:50:30(GMT-04:00)",
+    "sources": {
+      "constitution": {
+        "schema_type": "constitution",
+        "schema_version": "0.6.0",
+        "domain_index": {
+          "GOVERNANCE": [
+            "P01"
+          ]
+        },
+        "principles": {
+          "P01": {
+            "name": "SDD Pipeline Inviolability",
+            "domain": "GOVERNANCE",
+            "severity": "BLOCKING",
+            "rule": "Nunca implementar código sem tasks.md aprovado. Pipeline obrigatório: specify → plan → tasks → implement → converge. Em domínios de saúde, spec inclui o medical-gate (P09) antes do plan.\n",
+            "rationale": "Código sem spec é dívida técnica não rastreável. O Task Verifier garante que cada linha tem origem em requisito aprovado pelo usuário.\n",
+            "validator": "hooks/llm_judge.py --mode tasks"
+          }
+        }
+      },
+      "routing_table": {
+        "schema_type": "routing_table",
+        "agents": [
+          {
+            "id": "session-start",
+            "name": "Início de Sessão",
+            "command": "/vitalia-session-start",
+            "emoji": "🚀",
+            "gates": [
+              "route"
+            ],
+            "priority": 1,
+            "fallback": false,
+            "patterns": [
+              "iniciar sessão",
+              "começar",
+              "onde parei",
+              "cold start",
+              "retomar",
+              "abrir sessão",
+              "bom dia",
+              "vamos começar"
+            ],
+            "description": "Recupera contexto completo e apresenta P0. Usar quando o usuário quer explicitamente iniciar ou retomar uma sessão."
+          },
+          {
+            "id": "session-end",
+            "name": "Encerramento de Sessão",
+            "command": "/vitalia-session-end",
+            "emoji": "🏁",
+            "gates": [
+              "route"
+            ],
+            "priority": 1,
+            "patterns": [
+              "encerrar sessão",
+              "finalizar",
+              "salvar e sair",
+              "commitar contexto",
+              "fechar o dia",
+              "terminar"
+            ],
+            "description": "Reflexão, atualização 3-Tier, commit e shard."
+          },
+          {
+            "id": "session-consolidate",
+            "name": "Consolidação",
+            "command": "/vitalia-session-consolidate",
+            "emoji": "🔄",
+            "gates": [
+              "route"
+            ],
+            "priority": 2,
+            "patterns": [
+              "consolidar",
+              "sincronizar",
+              "push contexto",
+              "dashboard",
+              "atualizar readme",
+              "consolidar shards"
+            ],
+            "description": "Consolida shards e renderiza README visual do contexto."
+          },
+          {
+            "id": "brainstorming",
+            "name": "Brainstorming",
+            "command": "/vitalia-brainstorming",
+            "emoji": "🌀",
+            "gates": [
+              "route"
+            ],
+            "priority": 1,
+            "fallback": true,
+            "patterns": [
+              "brainstorming",
+              "explorar",
+              "pensar sobre",
+              "ideia",
+              "discutir",
+              "design thinking socrático",
+              "quero construir",
+              "como poderíamos"
+            ],
+            "description": "Supervisor do ciclo SDD. Fallback padrão: intenção vaga ou sem match → brainstorming socrático (C11)."
+          },
+          {
+            "id": "spec-specify",
+            "name": "Especificação",
+            "command": "/vitalia-spec-specify",
+            "emoji": "📋",
+            "gates": [
+              "route"
+            ],
+            "priority": 2,
+            "patterns": [
+              "especificar",
+              "criar spec",
+              "escrever requisitos",
+              "feature spec",
+              "nova feature",
+              "spec-specify"
+            ],
+            "description": "Traduz pedido em spec.md formal com FR-xxx, SC-xxx e Given/When/Then."
+          },
+          {
+            "id": "spec-plan",
+            "name": "Plano Técnico",
+            "command": "/vitalia-spec-plan",
+            "emoji": "🗺️",
+            "gates": [
+              "route"
+            ],
+            "priority": 2,
+            "patterns": [
+              "planejar",
+              "criar plano",
+              "arquitetura da feature",
+              "spec-plan",
+              "plan.md"
+            ],
+            "description": "Lê spec aprovada e propõe arquitetura técnica com decisões documentadas."
+          },
+          {
+            "id": "spec-tasks",
+            "name": "Tarefas",
+            "command": "/vitalia-spec-tasks",
+            "emoji": "✅",
+            "gates": [
+              "route"
+            ],
+            "priority": 2,
+            "patterns": [
+              "criar tasks",
+              "quebrar em tarefas",
+              "spec-tasks",
+              "tasks.md",
+              "tarefas atômicas"
+            ],
+            "description": "Converte plan.md aprovado em tasks.md com tarefas atômicas."
+          },
+          {
+            "id": "spec-implement",
+            "name": "Implementação",
+            "command": "/vitalia-spec-implement",
+            "emoji": "⚙️",
+            "gates": [
+              "route"
+            ],
+            "priority": 2,
+            "patterns": [
+              "implementar",
+              "codar",
+              "executar tasks",
+              "iniciar implementação",
+              "spec-implement"
+            ],
+            "description": "Executa rigorosamente o tasks.md aprovado."
+          },
+          {
+            "id": "task-verifier",
+            "name": "Verificador de Tarefas",
+            "command": "/vitalia-task-verifier",
+            "emoji": "🔍",
+            "gates": [
+              "route"
+            ],
+            "priority": 2,
+            "patterns": [
+              "verificar tasks",
+              "checar constituição",
+              "task-verifier",
+              "compliance",
+              "validar tarefas"
+            ],
+            "description": "Sub-agente que checa tasks.md contra a constitution antes da implementação."
+          },
+          {
+            "id": "analyze",
+            "name": "Análise",
+            "command": "/vitalia-analyze",
+            "emoji": "🔬",
+            "gates": [
+              "route"
+            ],
+            "priority": 2,
+            "patterns": [
+              "analisar",
+              "análise de consistência",
+              "verificar spec",
+              "gap análise"
+            ],
+            "description": "Análise read-only de consistência entre spec.md, plan.md e tasks.md."
+          },
+          {
+            "id": "review",
+            "name": "Revisão de Código",
+            "command": "/vitalia-review",
+            "emoji": "👁️",
+            "gates": [
+              "route"
+            ],
+            "priority": 2,
+            "patterns": [
+              "revisar código",
+              "code review",
+              "auditar",
+              "qualidade",
+              "review"
+            ],
+            "description": "Audita qualidade, arquitetura e segurança de arquivo ou diretório."
+          },
+          {
+            "id": "converge",
+            "name": "Convergência",
+            "command": "/vitalia-converge",
+            "emoji": "🎯",
+            "gates": [
+              "route"
+            ],
+            "priority": 2,
+            "patterns": [
+              "converge",
+              "reconciliar",
+              "tasks desatualizadas",
+              "código vs spec"
+            ],
+            "description": "Avalia código real contra spec/plan/tasks e reconcilia o tasks.md."
+          },
+          {
+            "id": "debug",
+            "name": "Debug",
+            "command": "/vitalia-debug",
+            "emoji": "🐛",
+            "gates": [
+              "route"
+            ],
+            "priority": 1,
+            "patterns": [
+              "debug",
+              "depurar",
+              "erro",
+              "bug",
+              "falha",
+              "não funciona",
+              "exception"
+            ],
+            "description": "Fluxo sistemático de depuração para isolar falhas."
+          },
+          {
+            "id": "continue",
+            "name": "Continuar",
+            "command": "/vitalia-continue",
+            "emoji": "▶️",
+            "gates": [
+              "route"
+            ],
+            "priority": 1,
+            "patterns": [
+              "continuar",
+              "retomar implementação",
+              "continue",
+              "próximo arquivo"
+            ],
+            "description": "Retoma implementação de feature ou arquivo com contexto completo."
+          },
+          {
+            "id": "clarify",
+            "name": "Clarificação",
+            "command": "/vitalia-clarify",
+            "emoji": "❓",
+            "gates": [
+              "route"
+            ],
+            "priority": 2,
+            "patterns": [
+              "clarificar",
+              "ambiguidade",
+              "dúvida na spec",
+              "clarify"
+            ],
+            "description": "Detecta e resolve ambiguidades no spec.md ativo."
+          },
+          {
+            "id": "pair",
+            "name": "Pair Programming",
+            "command": "/vitalia-pair",
+            "emoji": "👥",
+            "gates": [
+              "route"
+            ],
+            "priority": 2,
+            "patterns": [
+              "pair programming",
+              "parear",
+              "programar junto",
+              "chunk por chunk"
+            ],
+            "description": "Modo pair programming estruturado — propõe cada chunk."
+          },
+          {
+            "id": "adr",
+            "name": "ADR",
+            "command": "/vitalia-adr",
+            "emoji": "📐",
+            "gates": [
+              "route"
+            ],
+            "priority": 3,
+            "patterns": [
+              "ADR",
+              "decision record",
+              "decisão arquitetural",
+              "documentar decisão"
+            ],
+            "description": "Cria Architecture Decision Record de forma interativa."
+          },
+          {
+            "id": "release",
+            "name": "Release",
+            "command": "/vitalia-release",
+            "emoji": "🚢",
+            "gates": [
+              "route"
+            ],
+            "priority": 3,
+            "patterns": [
+              "release",
+              "publicar",
+              "changelog",
+              "versionar",
+              "tag"
+            ],
+            "description": "Prepara e executa processo de release com checklist e changelog."
+          },
+          {
+            "id": "medical-gate",
+            "name": "Medical Gate",
+            "command": "/vitalia-medical-gate",
+            "emoji": "🩺",
+            "gates": [
+              "route"
+            ],
+            "priority": 1,
+            "patterns": [
+              "clínico",
+              "diagnóstico",
+              "biomarcador",
+              "dosagem",
+              "HITL médico",
+              "risco clínico",
+              "protocolo médico",
+              "saúde",
+              "dado de saúde"
+            ],
+            "description": "Gate de segurança clínica — avalia risco e emite constraints HITL."
+          },
+          {
+            "id": "science-review",
+            "name": "Revisão Científica",
+            "command": "/vitalia-science-review",
+            "emoji": "🔭",
+            "gates": [
+              "route"
+            ],
+            "priority": 2,
+            "patterns": [
+              "revisão científica",
+              "evidência",
+              "nível de evidência",
+              "science-review",
+              "artigo científico"
+            ],
+            "description": "Coordena revisão científica de features antes de publicar."
+          },
+          {
+            "id": "vitalia-integrative-review",
+            "name": "Revisão Integrativa",
+            "command": "/vitalia-vitalia-integrative-review",
+            "emoji": "📚",
+            "gates": [
+              "route"
+            ],
+            "priority": 2,
+            "patterns": [
+              "revisão integrativa",
+              "PRISMA",
+              "Scopus",
+              "Web of Science",
+              "revisão de literatura"
+            ],
+            "description": "Workflow de revisão integrativa com PRISMA, Scopus e Web of Science."
+          },
+          {
+            "id": "skill-evaluation",
+            "name": "Avaliação de Skills",
+            "command": "/vitalia-skill-evaluation",
+            "emoji": "��",
+            "gates": [
+              "route"
+            ],
+            "priority": 3,
+            "patterns": [
+              "avaliar skill",
+              "gargalo",
+              "skill-evaluation",
+              "otimizar workflow"
+            ],
+            "description": "Analisa histórico da sessão para identificar gargalos e recomendar melhorias."
+          }
+        ]
+      },
+      "agents_catalog": {
+        "schema_type": "agents_catalog",
+        "agents": [
+          {
+            "id": "medical-gate",
+            "name": "Medical Gate",
+            "emoji": "🩺",
+            "status": "active",
+            "gates": [
+              "route",
+              "session-start",
+              "session-end",
+              "medical_gate"
+            ],
+            "command": "/vitalia-medical-gate",
+            "role": "Avaliação de risco clínico e HITL médico",
+            "model_hint": "lightweight",
+            "sub_agents": [],
+            "data_inputs": [
+              {
+                "type": "spec_content"
+              }
+            ],
+            "data_outputs": [
+              {
+                "type": "risk_report",
+                "format": "markdown",
+                "status": "DRAFT"
+              }
+            ],
+            "queue_key": "vitalia:agents:medical-gate",
+            "hitl_required": true,
+            "description": "Avalia risco clínico de specs e implementações, verifica faixas de referência\nde biomarcadores e garante friction-for-safety em decisões médicas.\nTodo output é DRAFT até aprovação de profissional de saúde.\n"
+          },
+          {
+            "id": "design-thinking",
+            "name": "Design Thinking Facilitator",
+            "emoji": "🎨",
+            "status": "planned",
+            "gates": [
+              "route",
+              "session-start",
+              "session-end"
+            ],
+            "command": "/vitalia-design-thinking",
+            "role": "Facilitador de workshops, PRDs e descoberta humana",
+            "model_hint": "lightweight",
+            "sub_agents": [
+              "persona-builder",
+              "hmw-generator",
+              "csd-manager",
+              "prd-synthesizer"
+            ],
+            "data_inputs": [
+              {
+                "type": "none"
+              }
+            ],
+            "data_outputs": [
+              {
+                "type": "artifact",
+                "path": "docs/design/",
+                "format": "markdown"
+              }
+            ],
+            "queue_key": "vitalia:agents:design-thinking",
+            "description": "Conduz workshops de Design Thinking (Duplo Diamante), elabora PRDs executivos,\nmapas de empatia, declarações HMW e personas. Serve workshops acadêmicos na UFMT\ne modelagem de produtos para o ecossistema Vitalia.\n"
+          },
+          {
+            "id": "literature-curator",
+            "name": "Literature Curator",
+            "emoji": "📚",
+            "status": "planned",
+            "gates": [
+              "route",
+              "session-start",
+              "session-end"
+            ],
+            "command": "/vitalia-literature-curator",
+            "role": "Guardião do acervo e ingestão científica",
+            "model_hint": "lightweight",
+            "sub_agents": [
+              "ncbi-fetcher",
+              "openalex-downloader",
+              "docling-converter",
+              "prisma-auditor"
+            ],
+            "data_inputs": [
+              {
+                "type": "directory",
+                "path": ".vitalia/memory/data_storage/amostra/",
+                "watch": true
+              },
+              {
+                "type": "directory",
+                "path": ".vitalia/memory/data_storage/papers/"
+              }
+            ],
+            "data_outputs": [
+              {
+                "type": "pgvector",
+                "description": "Chunks indexados semanticamente"
+              },
+              {
+                "type": "directory",
+                "path": ".vitalia/memory/data_storage/fichamentos/",
+                "format": "markdown"
+              }
+            ],
+            "queue_key": "vitalia:agents:literature-curator",
+            "description": "Coleta, baixa, extrai texto completo e indexa literatura científica via EuropePMC\n(XML), OpenAlex (PDF OA), e Docling da IBM para Markdown estruturado.\nMantém rastreabilidade PRISMA 2020 e fila de download CAFe/CAPES.\n"
+          },
+          {
+            "id": "visual-creator",
+            "name": "Visual Creator",
+            "emoji": "🖼️",
+            "status": "planned",
+            "gates": [
+              "route",
+              "session-end"
+            ],
+            "command": "/vitalia-visual-creator",
+            "role": "Geração visual híbrida e prototipação",
+            "model_hint": "heavy",
+            "sub_agents": [
+              "prompt-visual-optimizer",
+              "image-backend-router",
+              "artifact-embedder"
+            ],
+            "data_inputs": [
+              {
+                "type": "description"
+              }
+            ],
+            "data_outputs": [
+              {
+                "type": "directory",
+                "path": ".vitalia/memory/data_storage/images/",
+                "format": "webp|png"
+              }
+            ],
+            "queue_key": "vitalia:agents:visual-creator",
+            "description": "Gera personas fotorrealistas, wireframes de Design Thinking e infográficos clínicos.\nRoteia automaticamente entre backend Gemini (qualidade) e Diffusers local (privacidade).\n"
+          },
+          {
+            "id": "architect",
+            "name": "Vitalia Architect",
+            "emoji": "🏛️",
+            "status": "planned",
+            "gates": [
+              "route",
+              "brainstorming",
+              "session-end"
+            ],
+            "command": "/vitalia-architect",
+            "role": "Transição de consensos para o pipeline SDD formal",
+            "model_hint": "lightweight",
+            "sub_agents": [],
+            "data_inputs": [
+              {
+                "type": "brainstorming_artifact",
+                "path": "docs/brainstorming_*.md"
+              }
+            ],
+            "data_outputs": [
+              {
+                "type": "spec_draft",
+                "path": "specs/",
+                "format": "markdown"
+              }
+            ],
+            "queue_key": "vitalia:agents:architect",
+            "description": "Converte consensos do brainstorming e Design Thinking em specs formais do pipeline\nSDD (spec-specify → spec-plan → spec-tasks → spec-implement). Cria ADRs e\ndocumenta decisões arquiteturais.\n"
+          },
+          {
+            "id": "master-ai-control",
+            "name": "Master AI-Control",
+            "emoji": "👑",
+            "status": "planned",
+            "gates": [
+              "route",
+              "session-start",
+              "session-end"
+            ],
+            "command": "/vitalia-master-ai-control",
+            "role": "Arquiteto e Maestro do Projeto",
+            "model_hint": "frontier",
+            "sub_agents": [],
+            "queue_key": "vitalia:agents:master-ai-control",
+            "description": "Arquiteto-chefe do ecossistema AI-Control. Orquestra requisitos cross-system,\narbitra decisões técnicas e garante alinhamento estratégico da solução.\n"
+          },
+          {
+            "id": "django-stark",
+            "name": "Django-Stark",
+            "emoji": "⚡",
+            "status": "planned",
+            "gates": [
+              "route"
+            ],
+            "command": "/vitalia-django-stark",
+            "role": "Especialista Backend Python e Django",
+            "model_hint": "lightweight",
+            "sub_agents": [],
+            "queue_key": "vitalia:agents:django-stark",
+            "description": "Especialista em arquitetura backend, Django, Django REST Framework, Celery,\nRedis, modelagem relacional PostgreSQL, autenticação e performance de APIs.\n"
+          },
+          {
+            "id": "react-vinci",
+            "name": "React-Vinci",
+            "emoji": "🎨",
+            "status": "planned",
+            "gates": [
+              "route"
+            ],
+            "command": "/vitalia-react-vinci",
+            "role": "Especialista Frontend e UI",
+            "model_hint": "lightweight",
+            "sub_agents": [],
+            "queue_key": "vitalia:agents:react-vinci",
+            "description": "Especialista em arquitetura frontend, Next.js, React, TypeScript, Tailwind CSS,\ngerenciamento de estado, acessibilidade e integração fluida com APIs backend.\n"
+          },
+          {
+            "id": "infra-nomad",
+            "name": "Infra-Nomad",
+            "emoji": "🐳",
+            "status": "planned",
+            "gates": [
+              "route"
+            ],
+            "command": "/vitalia-infra-nomad",
+            "role": "Especialista em DevOps e Infraestrutura",
+            "model_hint": "lightweight",
+            "sub_agents": [],
+            "queue_key": "vitalia:agents:infra-nomad",
+            "description": "Guardião da infraestrutura conteinerizada, Docker Compose, redes isoladas,\nvolumes persistentes, variáveis de ambiente seguras e pipelines de CI/CD.\n"
+          },
+          {
+            "id": "cortex-analyst",
+            "name": "Cortex-Analyst",
+            "emoji": "🧠",
+            "status": "planned",
+            "gates": [
+              "route"
+            ],
+            "command": "/vitalia-cortex-analyst",
+            "role": "Especialista em Dados, IA e RAG",
+            "model_hint": "heavy",
+            "sub_agents": [],
+            "queue_key": "vitalia:agents:cortex-analyst",
+            "description": "Especialista em pipelines de ingestão de dados, chunking, modelos de embeddings\nlocais/cloud, busca vetorial com pgvector e engenharia de contexto para LLMs.\n"
+          },
+          {
+            "id": "figma-maestro",
+            "name": "Figma-Maestro",
+            "emoji": "✨",
+            "status": "planned",
+            "gates": [
+              "route"
+            ],
+            "command": "/vitalia-figma-maestro",
+            "role": "Especialista em Design System e UX",
+            "model_hint": "lightweight",
+            "sub_agents": [],
+            "queue_key": "vitalia:agents:figma-maestro",
+            "description": "Arquiteto de interfaces, design tokens, micro-interações, consistência visual,\ncomponentes reutilizáveis e tradução de wireframes em especificações de UI.\n"
+          }
+        ]
+      },
+      "brainstorming_intents": {
+        "schema_type": "brainstorming_intents",
+        "schema_version": "0.6.0",
+        "domains": {
+          "estrategia_produto": {
+            "description": "Concepcao de novas funcionalidades, alinhamento de roadmap, proposta de valor e trade-offs de produto.",
+            "threshold": 0.8,
+            "p0_flag": false,
+            "utterances": [
+              "Quero criar uma nova funcionalidade no sistema",
+              "Preciso estruturar a ideia de um novo modulo",
+              "Como podemos desenhar a arquitetura deste produto?",
+              "Quero fazer um brainstorming de produto",
+              "Preciso decidir os trade-offs desta feature",
+              "Como posso melhorar a experiencia do usuario nesta tela?",
+              "Quero propor um novo fluxo de onboarding"
+            ]
+          },
+          "educacao_workshop": {
+            "description": "Criacao de material didatico, estruturacao de cursos, workshops, apresentacoes academicas ou treinos.",
+            "threshold": 0.78,
+            "p0_flag": false,
+            "utterances": [
+              "Crie uma apresentacao sobre o kit para a universidade",
+              "Preciso de um roteiro de workshop tecnico",
+              "Como estruturar uma aula pratica sobre este tema?",
+              "Desenvolva um plano de ensino ou treinamento",
+              "Monte um material didatico sobre arquitetura de software",
+              "Quero criar um curso sobre desenvolvimento com IA",
+              "Preciso de slides para uma palestra academica"
+            ]
+          },
+          "saude_clinica": {
+            "description": "Sistemas medicos, manipulacao de dados de pacientes, algoritmos de suporte a decisao clinica e privacidade.",
+            "threshold": 0.85,
+            "p0_flag": true,
+            "utterances": [
+              "Desenvolver modulo de prontuario ou dados de saude",
+              "Integracao com exames ou biomarcadores",
+              "Analise de dados medicos ou diagnosticos",
+              "Sistema para uso por profissionais de saude em clinica",
+              "Tratamento de dados sensiveis de pacientes (LGPD/HIPAA)",
+              "Quero adicionar recomendacao de intensidade de treino",
+              "Preciso registrar frequencia cardiaca e calcular zonas de esforco"
+            ]
+          }
+        }
+      }
+    },
+    "session_context": {
+      "p0": "- **🎯 Próximo Passo Prioritário (P0):** `Testar localmente na próxima sessão o funcionamento ponta a ponta do kit e workflows no repositório, validando o novo fluxo antes de qualquer submissão ao GitHub.`",
+      "active_feature": "specs/kit-routing-subagents",
+      "handoff": {
+        "$schema": "vitalia-handoff-v1.0.0",
+        "schema_type": "workflow_handoff",
+        "schema_version": "1.0.0",
+        "envelope": {
+          "handoff_id": "b81b48c7-7d33-4b7c-87c9-4e10ba79523a",
+          "created_at": "2026-10-20T13:50:30Z",
+          "ttl_seconds": 3600,
+          "source_workflow": "brainstorming",
+          "target_workflow": "vitalia-route",
+          "direction": "forward",
+          "machine_id": "17a6f667",
+          "status": "pending"
+        },
+        "intent": {
+          "intent_type": "brainstorming_to_route",
+          "source_input": "Fluxo de onboarding integrado",
+          "normalized_summary": "specs/kit-routing-subagents/research-brainstorming.md",
+          "confidence": 1.0,
+          "match_level": "semantic",
+          "match_source": "routing_table.brainstorming",
+          "target_command": "/vitalia-route",
+          "detected_domain": "design-thinking",
+          "pipeline_stage": "brainstorming",
+          "feature_context": "specs/kit-routing-subagents"
+        },
+        "session_snapshot": {
+          "active_feature": "specs/kit-routing-subagents",
+          "p0": "Transição de contexto determinística local",
+          "machine_id": "17a6f667",
+          "env_summary": {
+            "python": "3.14.4"
+          }
+        },
+        "routing": {
+          "confirmed_by_user": true,
+          "confirmation_timestamp": "2026-10-20T13:50:30Z",
+          "suggested_command": "/vitalia-route",
+          "fallback_used": false
+        }
+      },
+      "user_input": "confirmar roteamento"
+    },
+    "env_summary": {},
+    "context_decisions": [
+      {
+        "id": "84ced170",
+        "timestamp": "12-10-2026 21:23:00(GMT-04:00)",
+        "machine_id": "17a6f667",
+        "category": "ARQUITETURA",
+        "decision": "Adoção do qwen2.5:3b como OLLAMA_REASONING_MODEL padrão no ambiente local com GTX 1060 6GB.",
+        "rationale": "Consome apenas 2.9 GB de VRAM, opera 100% na GPU sem CPU offloading e funciona no Ollama 0.5.12 sem erro de tensores.",
+        "alternatives": [
+          "Atualizar Ollama Docker imediatamente para rodar phi4-mini",
+          "Manter qwen2.5-coder:7b com 5.4 GB de VRAM"
+        ]
+      },
+      {
+        "id": "8a46c497",
+        "timestamp": "12-10-2026 21:23:00(GMT-04:00)",
+        "machine_id": "17a6f667",
+        "category": "ARQUITETURA",
+        "decision": "Implementação do TasksEvaluator em modo 1-a-1 atômico com varredura completa e tabela consolidada de suggested_fix.",
+        "rationale": "Elimina lost-in-the-middle e complacência autorregressiva, entregando lista completa de correções de uma só vez.",
+        "alternatives": [
+          "Auditoria monolítica em bloco",
+          "Fail-fast no primeiro erro"
+        ]
+      },
+      {
+        "id": "ea9ce99b",
+        "timestamp": "12-10-2026 21:23:00(GMT-04:00)",
+        "machine_id": "17a6f667",
+        "category": "ARQUITETURA",
+        "decision": "Governança graduada de avisos onde WARN com warn_severity EXTREME é elevado programaticamente para BLOCK (exit code 1).",
+        "rationale": "Impede que violações severas de arquitetura passem despercebidas como simples avisos cosméticos.",
+        "alternatives": [
+          "Tratar todo WARN como BLOCK",
+          "Ignorar severidade de WARN"
+        ]
+      }
+    ],
+    "context_learnings": [
+      {
+        "id": "0b0a828e",
+        "timestamp": "16-10-2026 17:15:51(GMT-04:00)",
+        "machine_id": "17a6f667",
+        "source_origin": "ai-control",
+        "category": "workflow",
+        "learning": "",
+        "rationale": "Registro defasado",
+        "trigger_event": "session-end"
+      },
+      {
+        "id": "0b0a828e",
+        "timestamp": "16-10-2026 17:15:51(GMT-04:00)",
+        "machine_id": "17a6f667",
+        "source_origin": "ai-control",
+        "category": "workflow",
+        "learning": "",
+        "rationale": "Registro defasado",
+        "trigger_event": "session-end"
+      },
+      {
+        "id": "0b0a828e",
+        "timestamp": "16-10-2026 17:15:51(GMT-04:00)",
+        "machine_id": "17a6f667",
+        "source_origin": "ai-control",
+        "category": "configuration",
+        "learning": "",
+        "rationale": "Registro defasado",
+        "trigger_event": "session-end"
+      },
+      {
+        "id": "9988cc93",
+        "timestamp": "12-10-2026 21:23:00(GMT-04:00)",
+        "machine_id": "17a6f667",
+        "source_origin": "ai-control",
+        "category": "KIT",
+        "learning": "[KIT] O modelo phi4-mini exige Ollama >= 0.5.13 devido a novos tensores GGUF (missing tensor 'output.weight'). Para Ollama 0.5.12 em GPU de 6GB, o qwen2.5:3b é a alternativa ideal com 2.9GB de VRAM e suporte nativo a JSON Schema.",
+        "rationale": "Garante estabilidade e agilidade de inferência sem necessitar de atualização imediata da imagem Docker do motor.",
+        "trigger_event": "session-end"
+      },
+      {
+        "id": "80e067c9",
+        "timestamp": "12-10-2026 21:23:00(GMT-04:00)",
+        "machine_id": "17a6f667",
+        "source_origin": "ai-control",
+        "category": "KIT",
+        "learning": "[KIT] Constrained Grammar Decoding (format JSON Schema) com CoT invertido (critique antes de verdict) elimina sycophancy e garante determinismo sintático em 100% das chamadas locais.",
+        "rationale": "Evita erros de parsing markdown e assegura que a fundamentação crítica seja gerada antes da classificação.",
+        "trigger_event": "session-end"
+      }
+    ],
+    "estimated_tokens": 2731,
+    "token_budget": 450,
+    "tmp_cleanup_matrix": {
+      "schema_version": "0.6.0",
+      "timestamp": "20-10-2026 09:50:30(GMT-04:00)",
+      "active_session_date": "2026-10-20",
+      "total_files": 54,
+      "total_bytes": 1823277,
+      "formatted_total_size": "1.74 MB",
+      "dates": [
+        {
+          "id": 1,
+          "date": "2026-10-12",
+          "is_today": false,
+          "file_count": 1,
+          "total_size_bytes": 67749,
+          "formatted_size": "66.16 KB",
+          "files": [
+            {
+              "filename": "session-consolidate_20261012_212421_8280a8565423.json",
+              "bytes": 67749,
+              "modified_at": "2026-10-12T21:24:21.727333"
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "date": "2026-10-13",
+          "is_today": false,
+          "file_count": 9,
+          "total_size_bytes": 297544,
+          "formatted_size": "290.57 KB",
+          "files": [
+            {
+              "filename": "brainstorming_20261013_152153_a68b3204a743.json",
+              "bytes": 50583,
+              "modified_at": "2026-10-13T15:21:53.753580"
+            },
+            {
+              "filename": "brainstorming_20261013_194426_c3f2b1448809.json",
+              "bytes": 51338,
+              "modified_at": "2026-10-13T19:44:26.851342"
+            },
+            {
+              "filename": "session-start_20261013_151252_9780be6db88e.json",
+              "bytes": 52359,
+              "modified_at": "2026-10-13T15:12:52.338398"
+            },
+            {
+              "filename": "spec-plan_20261013_175824_de95383e363e.json",
+              "bytes": 26842,
+              "modified_at": "2026-10-13T17:58:24.635725"
+            },
+            {
+              "filename": "spec-plan_20261013_182745_3a1914ef92af.json",
+              "bytes": 27032,
+              "modified_at": "2026-10-13T18:27:45.726428"
+            },
+            {
+              "filename": "spec-plan_20261013_194512_f76b26839c39.json",
+              "bytes": 27416,
+              "modified_at": "2026-10-13T19:45:12.795943"
+            },
+            {
+              "filename": "spec-specify_20261013_172844_5d6b9b07dad9.json",
+              "bytes": 27524,
+              "modified_at": "2026-10-13T17:28:44.059883"
+            },
+            {
+              "filename": "spec-specify_20261013_174715_1f89aa15ea2e.json",
+              "bytes": 27627,
+              "modified_at": "2026-10-13T17:47:15.731876"
+            },
+            {
+              "filename": "spec-tasks_20261013_222814_40fc99fe3866.json",
+              "bytes": 6823,
+              "modified_at": "2026-10-13T22:28:14.161252"
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "date": "2026-10-14",
+          "is_today": false,
+          "file_count": 8,
+          "total_size_bytes": 246860,
+          "formatted_size": "241.07 KB",
+          "files": [
+            {
+              "filename": "brainstorming_20261014_065356_b04f20226ae5.json",
+              "bytes": 51691,
+              "modified_at": "2026-10-14T06:53:56.853295"
+            },
+            {
+              "filename": "brainstorming_20261014_143307_ae0d74f07179.json",
+              "bytes": 52435,
+              "modified_at": "2026-10-14T14:33:07.174327"
+            },
+            {
+              "filename": "debug_20261014_141537_3021647f0a4d.json",
+              "bytes": 30409,
+              "modified_at": "2026-10-14T14:15:37.722166"
+            },
+            {
+              "filename": "spec-implement_20261014_071920_019b47ae1134.json",
+              "bytes": 22702,
+              "modified_at": "2026-10-14T07:19:20.992547"
+            },
+            {
+              "filename": "spec-implement_20261014_162250_5c282bcc6847.json",
+              "bytes": 23860,
+              "modified_at": "2026-10-14T16:22:50.214749"
+            },
+            {
+              "filename": "spec-plan_20261014_155628_095f60c33c4d.json",
+              "bytes": 29006,
+              "modified_at": "2026-10-14T15:56:28.931198"
+            },
+            {
+              "filename": "spec-specify_20261014_154806_149d41d6f2e1.json",
+              "bytes": 29934,
+              "modified_at": "2026-10-14T15:48:06.633379"
+            },
+            {
+              "filename": "spec-tasks_20261014_161736_6eb403f0ea52.json",
+              "bytes": 6823,
+              "modified_at": "2026-10-14T16:17:36.860092"
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "date": "2026-10-15",
+          "is_today": false,
+          "file_count": 9,
+          "total_size_bytes": 247602,
+          "formatted_size": "241.80 KB",
+          "files": [
+            {
+              "filename": "brainstorming_20261015_130323_f118d0efc2f5.json",
+              "bytes": 51906,
+              "modified_at": "2026-10-15T13:03:23.286464"
+            },
+            {
+              "filename": "session-consolidate_20261015_091819_861320c27b64.json",
+              "bytes": 35033,
+              "modified_at": "2026-10-15T09:18:19.416103"
+            },
+            {
+              "filename": "session-end_20261015_081813_9d24b4c639bd.json",
+              "bytes": 29806,
+              "modified_at": "2026-10-15T08:18:13.540963"
+            },
+            {
+              "filename": "session-start_20261015_125152_e130c65d0c92.json",
+              "bytes": 14285,
+              "modified_at": "2026-10-15T12:51:52.636120"
+            },
+            {
+              "filename": "spec-implement_20261015_215802_b4143e056595.json",
+              "bytes": 23454,
+              "modified_at": "2026-10-15T21:58:02.416130"
+            },
+            {
+              "filename": "spec-plan_20261015_202750_cff0b1108ddc.json",
+              "bytes": 28455,
+              "modified_at": "2026-10-15T20:27:50.782054"
+            },
+            {
+              "filename": "spec-plan_20261015_211907_a970f6fefb04.json",
+              "bytes": 28600,
+              "modified_at": "2026-10-15T21:19:07.323472"
+            },
+            {
+              "filename": "spec-specify_20261015_201616_2384019dae07.json",
+              "bytes": 29240,
+              "modified_at": "2026-10-15T20:16:16.233754"
+            },
+            {
+              "filename": "spec-tasks_20261015_214539_304b6b889f28.json",
+              "bytes": 6823,
+              "modified_at": "2026-10-15T21:45:39.902374"
+            }
+          ]
+        },
+        {
+          "id": 5,
+          "date": "2026-10-16",
+          "is_today": false,
+          "file_count": 15,
+          "total_size_bytes": 487932,
+          "formatted_size": "476.50 KB",
+          "files": [
+            {
+              "filename": "brainstorming_20261016_101749_af87dd5e402b.json",
+              "bytes": 56650,
+              "modified_at": "2026-10-16T10:17:49.071025"
+            },
+            {
+              "filename": "brainstorming_20261016_113242_2586e3bb803d.json",
+              "bytes": 53624,
+              "modified_at": "2026-10-16T11:32:42.939421"
+            },
+            {
+              "filename": "brainstorming_20261016_173045_ea12a630791a.json",
+              "bytes": 56193,
+              "modified_at": "2026-10-16T17:30:45.475289"
+            },
+            {
+              "filename": "clarify_20261016_214927_96ee3cee88c0.json",
+              "bytes": 35019,
+              "modified_at": "2026-10-16T21:49:27.609310"
+            },
+            {
+              "filename": "session-consolidate_20261016_171644_dbab94f68bc9.json",
+              "bytes": 36237,
+              "modified_at": "2026-10-16T17:16:44.405346"
+            },
+            {
+              "filename": "session-end_20261016_171319_4c319a5b6979.json",
+              "bytes": 31539,
+              "modified_at": "2026-10-16T17:13:19.081577"
+            },
+            {
+              "filename": "session-start_20261016_100959_61b5e44ba933.json",
+              "bytes": 18617,
+              "modified_at": "2026-10-16T10:09:59.212419"
+            },
+            {
+              "filename": "session-start_20261016_172142_f08915112c4f.json",
+              "bytes": 18471,
+              "modified_at": "2026-10-16T17:21:42.200651"
+            },
+            {
+              "filename": "spec-implement_20261016_164701_1677c8a9b92d.json",
+              "bytes": 25043,
+              "modified_at": "2026-10-16T16:47:01.148383"
+            },
+            {
+              "filename": "spec-plan_20261016_162231_e8ea02a88ab5.json",
+              "bytes": 30191,
+              "modified_at": "2026-10-16T16:22:31.386208"
+            },
+            {
+              "filename": "spec-specify_20261016_144026_b3f31e065006.json",
+              "bytes": 31020,
+              "modified_at": "2026-10-16T14:40:26.192457"
+            },
+            {
+              "filename": "spec-specify_20261016_214513_15a01e96c7e0.json",
+              "bytes": 33428,
+              "modified_at": "2026-10-16T21:45:13.422738"
+            },
+            {
+              "filename": "spec-tasks_20261016_163938_f53a89501064.json",
+              "bytes": 6823,
+              "modified_at": "2026-10-16T16:39:38.791760"
+            },
+            {
+              "filename": "task-verifier_20261016_165835_07e57778a764.json",
+              "bytes": 26482,
+              "modified_at": "2026-10-16T16:58:35.019769"
+            },
+            {
+              "filename": "task-verifier_20261016_170902_a93e7bb8e5da.json",
+              "bytes": 28595,
+              "modified_at": "2026-10-16T17:09:02.403938"
+            }
+          ]
+        },
+        {
+          "id": 6,
+          "date": "2026-10-17",
+          "is_today": false,
+          "file_count": 4,
+          "total_size_bytes": 154038,
+          "formatted_size": "150.43 KB",
+          "files": [
+            {
+              "filename": "brainstorming_20261017_092305_88b6cff8dabc.json",
+              "bytes": 56676,
+              "modified_at": "2026-10-17T09:23:05.495264"
+            },
+            {
+              "filename": "brainstorming_20261017_112930_475ee384410b.json",
+              "bytes": 57509,
+              "modified_at": "2026-10-17T11:29:30.850035"
+            },
+            {
+              "filename": "spec-plan_20261017_102524_17ee264c7e19.json",
+              "bytes": 33211,
+              "modified_at": "2026-10-17T10:25:24.091472"
+            },
+            {
+              "filename": "spec-tasks_20261017_105824_44e5e3060748.json",
+              "bytes": 6642,
+              "modified_at": "2026-10-17T10:58:24.099701"
+            }
+          ]
+        },
+        {
+          "id": 7,
+          "date": "2026-10-18",
+          "is_today": false,
+          "file_count": 6,
+          "total_size_bytes": 191239,
+          "formatted_size": "186.76 KB",
+          "files": [
+            {
+              "filename": "brainstorming_20261018_113847_1cfd4cb7cff1.json",
+              "bytes": 65977,
+              "modified_at": "2026-10-18T11:38:47.562570"
+            },
+            {
+              "filename": "session-start_20261018_113709_ee939ca5608b.json",
+              "bytes": 23807,
+              "modified_at": "2026-10-18T11:37:09.894813"
+            },
+            {
+              "filename": "spec-implement_20261018_111116_bcce6c839f79.json",
+              "bytes": 29072,
+              "modified_at": "2026-10-18T11:11:16.157339"
+            },
+            {
+              "filename": "spec-plan_20261018_104751_5f44e0402a31.json",
+              "bytes": 33788,
+              "modified_at": "2026-10-18T10:47:51.864281"
+            },
+            {
+              "filename": "spec-tasks_20261018_110803_a1bf7de12c51.json",
+              "bytes": 6642,
+              "modified_at": "2026-10-18T11:08:03.316143"
+            },
+            {
+              "filename": "task-verifier_20261018_110938_77257c7af6da.json",
+              "bytes": 31953,
+              "modified_at": "2026-10-18T11:09:38.953505"
+            }
+          ]
+        },
+        {
+          "id": 8,
+          "date": "2026-10-19",
+          "is_today": false,
+          "file_count": 1,
+          "total_size_bytes": 66191,
+          "formatted_size": "64.64 KB",
+          "files": [
+            {
+              "filename": "brainstorming_20261019_132027_45af45170fa5.json",
+              "bytes": 66191,
+              "modified_at": "2026-10-19T13:20:27.847190"
+            }
+          ]
+        },
+        {
+          "id": 9,
+          "date": "2026-10-20",
+          "is_today": true,
+          "file_count": 1,
+          "total_size_bytes": 64122,
+          "formatted_size": "62.62 KB",
+          "files": [
+            {
+              "filename": "brainstorming_20261020_091252_02ed65a09367.json",
+              "bytes": 64122,
+              "modified_at": "2026-10-20T09:12:52.843113"
+            }
+          ]
+        }
+      ],
+      "actions_available": [
+        {
+          "code": "a",
+          "label": "Apagar tudo EXCETO hoje",
+          "description": "Mover para quarentena (.trash) arquivos de sessões anteriores",
+          "is_default": true
+        },
+        {
+          "code": "d",
+          "label": "Selecionar datas específicas",
+          "description": "Mover para quarentena (.trash) apenas arquivos das datas indicadas",
+          "is_default": false
+        },
+        {
+          "code": "n",
+          "label": "Não apagar nada",
+          "description": "Preservar todos os arquivos temporários",
+          "is_default": false
+        },
+        {
+          "code": "t",
+          "label": "Apagar TUDO (inclusive hoje)",
+          "description": "Mover para quarentena (.trash) todos os arquivos temporários",
+          "is_default": false
+        }
+      ]
+    }
+  }
+}

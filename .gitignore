@@ -41,6 +41,12 @@ credentials.json
 .vitalia/config.yml
 .vitalia/memory/session/
 .vitalia/memory/data_storage/
+# Handoff Payloads e Contextos Locais (Zero Data Leak)
+.vitalia/memory/data_storage/handoffs/*
+!.vitalia/memory/data_storage/handoffs/.gitkeep
+handoff_*.json
+context_*_output_*.json
+divergence_*.json
 vitalia-01/*
 whatsapp-gateway/*
 agente-local/*

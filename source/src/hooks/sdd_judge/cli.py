@@ -1,4 +1,4 @@
-# cli.py | Vitalia SDD v0.6.0 | 12-10-2026 21:13(GMT-04:00)
+# cli.py | Vitalia SDD v0.6.0 | 02-11-2026 12:06(GMT-04:00)
 import sys
 import argparse
 from pathlib import Path
@@ -81,6 +81,9 @@ def main(args_list: Optional[list] = None) -> int:
     evaluator = evaluator_cls(profile_path=profile_path)
     try:
         return evaluator.evaluate(target_content, feature_name)
+    except KeyboardInterrupt:
+        print("\n🛑 [SDDJudge] Operação cancelada pelo usuário (Ctrl+C).", file=sys.stderr)
+        return 130
     except InfraFailError as e:
         # FR-010 — INFRA_FAIL: ambos os providers falharam. Não é BLOCK constitucional.
         # Exit code 2 permite que callers distingam INFRA_FAIL de BLOCK sem parsing de texto.
@@ -92,4 +95,8 @@ def main(args_list: Optional[list] = None) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except KeyboardInterrupt:
+        print("\n🛑 [SDDJudge] Operação cancelada pelo usuário (Ctrl+C).", file=sys.stderr)
+        sys.exit(130)

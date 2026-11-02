@@ -1,8 +1,6 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "TaskEvaluationSchema",
-  "description": "Contrato unifilar estrito para avaliação atômica de tarefas no modo 1-a-1 do sdd_judge",
   "type": "object",
+  "description": "Contrato unifilar estrito para avaliação atômica de tarefas no modo 1-a-1 do sdd_judge",
   "properties": {
     "task_id": {
       "type": "string",
@@ -44,6 +42,5 @@
     "verdict",
     "warn_severity",
     "suggested_fix"
-  ],
-  "additionalProperties": false
+  ]
 }

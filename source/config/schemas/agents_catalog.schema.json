@@ -1,0 +1,84 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AgentsCatalogSchema",
+  "description": "Schema de validação para o catálogo de agentes do Kit Vitalia SDD v0.6.0 (FR-008, FR-009).",
+  "type": "object",
+  "required": [
+    "schema_type",
+    "schema_version",
+    "agents"
+  ],
+  "properties": {
+    "schema_type": {
+      "type": "string",
+      "const": "agents_catalog"
+    },
+    "schema_version": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "agents": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "command",
+          "role",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "emoji": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "planned"
+            ]
+          },
+          "command": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "model_hint": {
+            "type": "string"
+          },
+          "gates": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sub_agents": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "queue_key": {
+            "type": "string"
+          },
+          "hitl_required": {
+            "type": "boolean"
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

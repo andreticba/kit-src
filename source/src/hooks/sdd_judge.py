@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# sdd_judge.py | Vitalia SDD v0.6.0 | 16-09-2026 21:00(GMT-04:00)
+# sdd_judge.py | Vitalia SDD v0.6.0 | 02-11-2026 12:06(GMT-04:00)
 # Propósito: Gatekeeper Constitucional em 6 Fases do Ciclo SDD (Shim CLI Fino)
 
 import sys
@@ -13,4 +13,8 @@ from sdd_judge import SDDJudge
 from sdd_judge.cli import main
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except KeyboardInterrupt:
+        print("\n🛑 [SDDJudge] Operação cancelada pelo usuário (Ctrl+C).", file=sys.stderr)
+        sys.exit(130)

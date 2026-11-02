@@ -102,11 +102,11 @@ class BaseEvaluator(ABC):
 
         if not data or not isinstance(data, dict):
             # Fallback para parsing clássico por regex caso constrained decoding falhe
-            if re.search(r'VEREDICTO_FINAL[\s\*:[\]]+PASS\b', content_str, re.IGNORECASE):
+            if re.search(r'(VEREDICTO[_\s]+FINAL[\s\*:[\]]+|conclusão[\s\w:]+é[\s\*]+|veredito[\s\w:]+é[\s\*]+)PASS\b', content_str, re.IGNORECASE):
                 default_result["verdict"] = "PASS"
                 default_result["warn_severity"] = "NONE"
                 default_result["exit_code"] = 0
-            elif re.search(r'VEREDICTO_FINAL[\s\*:[\]]+WARN\b', content_str, re.IGNORECASE):
+            elif re.search(r'VEREDICTO[_\s]+FINAL[\s\*:[\]]+WARN\b', content_str, re.IGNORECASE):
                 default_result["verdict"] = "WARN"
                 default_result["warn_severity"] = "LOW"
                 default_result["exit_code"] = 0

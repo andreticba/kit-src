@@ -50,7 +50,7 @@ principles:
     rationale: >
       Código sem spec é dívida técnica não rastreável. O Task Verifier
       garante que cada linha tem origem em requisito aprovado pelo usuário.
-    validator: "hooks/llm_judge.py --mode tasks"
+    validator: "/vitalia-task-verifier"
 
   P02:
     name: "User-Centric Validation & Impact Declaration"
@@ -83,11 +83,16 @@ principles:
     domain: "INFRASTRUCTURE"
     severity: "WARNING"
     rule: >
-      Todo arquivo criado ou modificado contém na primeira linha:
+      Todo arquivo criado ou modificado contém na primeira linha o cabeçalho
       `nome_arquivo | Vitalia SDD v0.6.0 | DD-MM-YYYY HH:MM(GMT-04:00)`.
+      Em arquivos Markdown (.md), a primeira linha contém o comentário HTML
+      `<!-- nome_arquivo | Vitalia SDD v0.6.0 | DD-MM-YYYY HH:MM(GMT-04:00) -->` e a
+      segunda linha contém obrigatoriamente a repetição em formato visível:
+      `> **nome_arquivo | Vitalia SDD v0.6.0 | DD-MM-YYYY HH:MM(GMT-04:00)**`.
       Fuso imutável America/Cuiaba (GMT-04:00) — sem exceções e sem DST.
     rationale: >
-      Rastreabilidade exige que qualquer artefato possa ser datado.
+      Rastreabilidade exige que qualquer artefato possa ser datado. A repetição
+      visível em .md assegura legibilidade tanto no código quanto no modo renderizado da IDE.
       GMT-04:00 imutável garante consistência entre máquinas em fusos distintos.
     validator: "maintenance/header_stamp.py"
 
@@ -159,7 +164,7 @@ principles:
       IA alucina. Em saúde, isso tem consequências à vida humana.
       HITL médico é requisito ético, regulatório (EU AI Act Art. 14)
       e de responsabilidade civil. Não é opcional.
-    validator: "hooks/llm_judge.py --mode tasks"
+    validator: "/vitalia-task-verifier"
 
   P10:
     name: "Didactics-First & Automation as Guardian"
@@ -214,7 +219,7 @@ principles:
     rationale: >
       Endpoints sem autenticação em sistemas de saúde violam LGPD e HIPAA.
       Autorização vs autenticação é o erro mais comum em APIs REST.
-    validator: "hooks/llm_judge.py --mode tasks"
+    validator: "/vitalia-task-verifier"
 
   P14:
     name: "Evidence Traceability & Clinical Data Lineage"
@@ -228,7 +233,7 @@ principles:
     rationale: >
       Explicabilidade jurídica exige raciocínio auditável. EU AI Act
       (vigência 02-08-2026) impõe data lineage obrigatório para high-risk AI.
-    validator: "hooks/llm_judge.py --mode tasks"
+    validator: "/vitalia-task-verifier"
 
   P15:
     name: "Observability & Structured Logging"

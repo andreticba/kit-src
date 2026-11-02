@@ -12,7 +12,7 @@ Ao acionar este comando:
 
 1. Execute o script nativo para invocar os hooks e iniciar o processo de extração de contexto:
    ```bash
-   python3 {{VITALIA_KIT_DIR}}/src/vitalia_hook_runner.py {{VITALIA_KIT_DIR}}/extensions/{{NAME}}.toml --phase before --args "{{args}}"
+   python3 {{VITALIA_KIT_DIR}}/src/vitalia_hook_runner.py {{VITALIA_KIT_DIR}}/extensions/{{NAME}}.toml --phase before --args="{{args}}"
    ```
 2. O script ejetará no stdout um **Stub JSON**. Extraia o caminho contido no campo `workflow_context_file`.
 3. Utilize a ferramenta `view_file` para ler o arquivo JSON físico referenciado.

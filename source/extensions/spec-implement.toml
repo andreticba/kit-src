@@ -125,6 +125,20 @@ Para cada fase no tasks.md:
     │    marcar a task como [X] e avançar.                                 │
     └─────────────────────────────────────────────────────────────────────┘
 
+    ┌── Trava de Escalação Invertida (FR-007 / ADR-004) ──────────────────┐
+    │ Se durante a execução da task for identificado desvio de            │
+    │ arquitetura, nova regra de negócio ou extrapolação de domínio:     │
+    │ 1. INTERROMPER IMEDIATAMENTE a escrita de código.                   │
+    │ 2. Gravar relatório divergence_<uuid_8>.json em                    │
+    │    .vitalia/memory/data_storage/handoffs/.                          │
+    │ 3. Executar vitalia_handoff.py create com --source spec-implement   │
+    │    --target brainstorming --direction reverse                      │
+    │    --intent route_to_brainstorming                                  │
+    │    --summary <caminho_divergence_json>                              │
+    │ 4. Suspender a sessão e orientar o usuário a repactuar a            │
+    │    arquitetura via /vitalia-brainstorming.                          │
+    └─────────────────────────────────────────────────────────────────────┘
+
   → "Phase N concluída — N tasks"
 ```
 

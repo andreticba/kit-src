@@ -1,0 +1,16 @@
+{
+  "total_ambiguities": 1,
+  "defects_per_100_lines": 0.4,
+  "verdict": "BLOCK",
+  "ambiguities": [
+    {
+      "id": "AMB-001",
+      "category": "Non-Functional Constraint / Data Integrity",
+      "severity": "CRITICAL",
+      "location": "NF-005",
+      "ambiguous_text": "Nenhuma migração automática de dados — o kit não copia handoffs de ~/.vitalia/memory/ para projetos. [MUST]",
+      "impact": "Possibilidade de dúvida sobre o destino dos dados órfãos legados ou se há risco de migração descontrolada.",
+      "priority_score": 9.0
+    }
+  ]
+}

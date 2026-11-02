@@ -48,31 +48,34 @@ class HeaderStamp:
         file_name = file_path.name
 
         if ext == ".py" or ext in [".sh", ".yaml", ".yml"]:
-            stamp_line = f"# {file_name} | Atualizado em: {ts}"
+            stamp_lines = [f"# {file_name} | Vitalia SDD v0.6.0 | {ts}"]
         elif ext == ".md":
-            stamp_line = f"<!-- {file_name} | Atualizado em: {ts} -->"
+            stamp_lines = [
+                f"<!-- {file_name} | Vitalia SDD v0.6.0 | {ts} -->",
+                f"> **{file_name} | Vitalia SDD v0.6.0 | {ts}**"
+            ]
         elif ext in [".js", ".ts"]:
-            stamp_line = f"// {file_name} | Atualizado em: {ts}"
+            stamp_lines = [f"// {file_name} | Vitalia SDD v0.6.0 | {ts}"]
         else:
             return False, "Sem formato de comentário suportado"
 
         new_lines = []
+        start_idx = 0
         if lines and lines[0].startswith("#!"):
             new_lines.append(lines[0])
-            if len(lines) > 1 and ("Atualizado em:" in lines[1] or "<!--" in lines[1] or "//" in lines[1]):
-                new_lines.append(stamp_line)
-                new_lines.extend(lines[2:])
-            else:
-                new_lines.append(stamp_line)
-                new_lines.extend(lines[1:])
-        else:
-            if lines and ("Atualizado em:" in lines[0] or "<!--" in lines[0] or "//" in lines[0]):
-                new_lines.append(stamp_line)
-                new_lines.extend(lines[1:])
-            else:
-                new_lines.append(stamp_line)
-                new_lines.extend(lines)
+            start_idx = 1
 
+        # Consumir defensivamente linhas de carimbo anteriores
+        idx = start_idx
+        while idx < len(lines):
+            l_strip = lines[idx].strip()
+            if any(marker in l_strip for marker in ["Atualizado em:", "Vitalia SDD", "<!--", "//", "> **"]):
+                idx += 1
+            else:
+                break
+
+        new_lines.extend(stamp_lines)
+        new_lines.extend(lines[idx:])
         new_content = "\n".join(new_lines) + "\n"
 
         if dry_run:

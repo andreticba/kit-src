@@ -1,8 +1,6 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "SectionEvaluationSchema",
-  "description": "Contrato estruturado para avaliação de seções do plan.md e spec.md integral",
   "type": "object",
+  "description": "Contrato estruturado para avaliação de seções do plan.md e spec.md integral",
   "properties": {
     "section_id": {
       "type": "string",
@@ -44,6 +42,5 @@
     "verdict",
     "warn_severity",
     "suggested_fix"
-  ],
-  "additionalProperties": false
+  ]
 }

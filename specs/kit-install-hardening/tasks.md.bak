@@ -1,0 +1,138 @@
+<!-- tasks.md | Vitalia SDD v0.6.0 | 31-10-2026 13:05(GMT-04:00) -->
+# Tasks: Kit Install Hardening
+
+**Spec**: [spec.md](file:///home/andre/projetos/assistidos/kit_src/specs/kit-install-hardening/spec.md) | **Plan**: [plan.md](file:///home/andre/projetos/assistidos/kit_src/specs/kit-install-hardening/plan.md)
+**Gerado em**: 31-10-2026 13:05(GMT-04:00)
+
+---
+
+## MVP Scope
+
+> Implementar **Phase 0 + Phase 1 + Phase 2 + Phase 3 + Phase 4** entrega produto funcionando com os 5 problemas sistêmicos corrigidos.
+> Phase 5 (Polish & Cross-Cutting) é incremento de qualidade e documentação.
+
+---
+
+## Phase 0: Grounding & Environment
+
+*Verificações de ambiente e grounding ANTES de qualquer implementação. Sem label de US.*
+
+- [ ] T000-A Ativar venv: `source .venv/bin/activate`
+- [ ] T000-B Verificar versão Python do venv (não do sistema): `python --version` (deve ser >= 3.10)
+- [ ] T000-C Verificar deps instaladas: `pip list` (confirmar pytest, requests no venv)
+- [ ] T000-D Verificar que `sha256sum` está disponível no PATH: `sha256sum --version`
+- [ ] T000-E Verificar que `rsync` está disponível: `rsync --version`
+
+---
+
+## Phase 1: Foundation — Resolvedor Python (FR-001 a FR-005)
+
+*Resolvedor de raiz de projeto dedicado e guardrails Zero Data Leak. Sem label de US — são dependências compartilhadas.*
+
+**Referência**: FR-001, FR-002, FR-003, FR-004, FR-005
+
+- [ ] T001 [P] [US1] Criar testes de regressão (TDD Red Phase) em `tests/unit/test_vitalia_handoff.py`: escrever testes falhando para cwd em subpasta sem marcadores, cwd dentro de `data_storage/`, cwd dentro de `~/.vitalia/`, projeto sem `data_storage`, guardrail `$HOME`, `--project-root` explícito (P05)
+- [ ] T002 [P] [US1] Implementar `resolve_project_root(start)` em `source/src/vitalia_handoff.py` (Green Phase) — busca ascendente por `.vitalia/` de projeto, ignora `$HOME` e `~/.vitalia`, lança `RuntimeError` com instrução para `install-project` (FR-001)
+- [ ] T003 [P] [US1] Implementar `resolve_storage_dir(start, lenient)` em `source/src/vitalia_handoff.py` (Green Phase) — valida `data_storage`, guardrail final contra `~/.vitalia`, modo lenient retorna `None` (FR-002, FR-003)
+- [ ] T004 [US1] Refatorar `get_default_storage_dir()` em `source/src/vitalia_handoff.py` para usar `resolve_storage_dir()` como backend, mantendo assinatura backward-compatible (FR-001)
+- [ ] T005 [US1] Adicionar argumento `--project-root` nos subcomandos `create`, `latest`, `consume`, `validate` do argparse em `source/src/vitalia_handoff.py` (FR-004)
+- [ ] T006 [P] [US1] Alinhar `vitalia_hook_runner.py` L216: substituir `Path(cwd)` por `resolve_storage_dir(start=Path(cwd), lenient=True)` (FR-005)
+- [ ] T007 [P] [US1] Alinhar `guardian_context.py` L329: substituir `self.cwd` por `resolve_storage_dir(start=Path(self.cwd), lenient=True)` (FR-005)
+
+---
+
+## Phase 2: Foundation — Bibliotecas Shell (FR-006 a FR-011)
+
+*Bibliotecas shell modulares com SRP. Sem label de US — são dependências compartilhadas.*
+
+**Referência**: FR-006, FR-007, FR-008, FR-009, FR-010, FR-011
+
+- [ ] T008 Criar diretório `source/bin/lib/`
+- [ ] T009 [P] Criar `source/bin/lib/logger.sh` com funções `log_ok`, `log_warn`, `log_error`, `log_step` — cores ANSI, compatível bash 3.2, `set -euo pipefail` (FR-006)
+- [ ] T010 [P] Criar `source/bin/lib/env_manager.sh` com funções `has_env_var`, `get_env_var`, `ensure_env_var`, `ensure_env_file`, `manage_kit_env` — matriz S1–S7, regex POSIX `^[[:space:]]*(export[[:space:]]+)?VAR[[:space:]]*=`, `REDIS_URL=redis://localhost:6379/0` (FR-007, FR-017, P06: preservação estrita de credenciais locais)
+- [ ] T011 [P] Criar `source/bin/lib/agent_preserver.sh` com funções `update_agents_md` (4 ramos: ausente/marcadores/legado/terceiros), `compute_skill_hash`, `update_skill`, `update_all_skills` — marcadores `<!-- VITALIA:KIT:START -->` / `<!-- VITALIA:KIT:END -->`, manifesto SHA-256 (FR-008, FR-009)
+- [ ] T012 [P] Criar `source/bin/lib/redis_detector.sh` com função `detect_redis` — lê `REDIS_URL` do `.env` antes do probe, fallback arquivo (FR-010, P06: sanitizar/mascarar senhas em outputs de console e logs)
+- [ ] T013 [P] Criar `source/bin/lib/git_storage_manager.sh` com funções `setup_git_repo`, `setup_session_repo`, `setup_data_repo` (FR-011)
+- [ ] T013-B [P] Validar libs shell isoladamente via script/smoke-test: source de cada lib em subshell e teste com casos de borda (variáveis com espaço, .env vazio, marcadores em AGENTS.md)
+
+---
+
+## Phase 3: Refatoração — `kit-bootstrap.sh` (FR-012 a FR-015)
+
+*Refatorar o bootstrap global para consumir libs e corrigir rsync.*
+
+**Story Goal**: kit-bootstrap.sh atualiza `~/.vitalia/` sem poluir `tmp/`, sem duplicar `.env`, com pré-requisitos verificados.
+**Independent Test**: Executar `kit-bootstrap.sh --dry-run` e verificar que `~/.vitalia/tmp/` não recebe JSONs de `source/tmp/`.
+**Referência**: FR-012, FR-013, FR-014, FR-015
+
+- [ ] T014 [US4] Substituir bloco rsync em `kit-bootstrap.sh` L139-145 por rsync seguro: `--checksum`, `--exclude='/tmp/'`, `--filter='protect /tmp/***'` (FR-012)
+- [ ] T015 [US4] Adicionar detecção e alerta de `~/.vitalia/memory/` órfão após rsync em `kit-bootstrap.sh`, com confirmação interativa para remoção (FR-013)
+- [ ] T016 [US3] Adicionar bloco fail-fast de pré-requisitos em `kit-bootstrap.sh` antes do banner: python3>=3.10, venv funcional, git, rsync, não-root, sugestão por SO (FR-014)
+- [ ] T017 [US2] Substituir cores inline e funções `log_*` locais de `kit-bootstrap.sh` por `source logger.sh` (FR-015)
+- [ ] T018 [US2] Substituir lógica inline de `.env` de `kit-bootstrap.sh` por `source env_manager.sh` + chamada `manage_kit_env` (FR-015)
+
+---
+
+## Phase 4: Refatoração — `install-project` (FR-016, FR-017)
+
+*Refatorar o install-project para consumir libs com fail-fast.*
+
+**Story Goal**: install-project preserva `.env` customizado, `AGENTS.md` de terceiros e skills editadas.
+**Independent Test**: Reinstalar em projeto existente com `.env` customizado e `AGENTS.md` com conteúdo de terceiros; verificar que ambos são preservados (SC-004, SC-007).
+**Referência**: FR-016, FR-017
+
+- [ ] T019 [US2] Adicionar carregamento de libs com fail-fast via `BASH_SOURCE` em `source/bin/install-project` — mensagem `Kit desatualizado. Execute o kit-bootstrap.sh.` se libs ausentes (FR-016)
+- [ ] T020 [US2] Substituir lógica inline de `.env` (L69-88) por chamada `manage_kit_env` em `source/bin/install-project` (FR-016)
+- [ ] T021 [US2] Substituir sincronização de `AGENTS.md` (L210-218) por chamada `update_agents_md` em `source/bin/install-project` (FR-016)
+- [ ] T022 [US2] Substituir geração de skills (L188-208) por chamada `update_all_skills` em `source/bin/install-project` (FR-016)
+- [ ] T023 [US2] Substituir probe de Redis (L66-88) por chamada `detect_redis` em `source/bin/install-project` (FR-016)
+- [ ] T024 [US2] Substituir lógica de Git (L96-135) por chamadas `setup_session_repo` / `setup_data_repo` em `source/bin/install-project` (FR-016)
+- [ ] T025 [US2] Unificar fallback de `REDIS_URL` para `redis://localhost:6379/0` em todos os pontos de fallback em `source/bin/install-project` e scripts Python alinhados (FR-017)
+
+---
+
+## Phase 5: Polish & Cross-Cutting
+
+*Qualidade, documentação e validação end-to-end. Sem label de US.*
+
+- [ ] T026 Atualizar `contracts/cli-contract.md` com documentação de `--project-root` para cada subcomando
+- [ ] T027 Atualizar header timestamp P04 em `kit-bootstrap.sh`
+- [ ] T028 Atualizar header timestamp P04 e versão v0.6.0 em `source/bin/install-project`
+- [ ] T029 Executar validação end-to-end manual: `kit-bootstrap.sh --dry-run` + `install-project` em projeto de teste — confirmar SC-001 a SC-013
+- [ ] T030 Revisar todos os arquivos modificados contra NF-001 (bash 3.2), NF-002 (set -euo pipefail), NF-003 (sem cp -n), NF-004 (stdlib-only), NF-007 (find_project_root inalterada)
+
+---
+
+## Dependency Graph
+
+```mermaid
+flowchart LR
+    P0["Phase 0: Grounding"]
+    P1["Phase 1: Resolvedor Python"]
+    P2["Phase 2: Libs Shell"]
+    P3["Phase 3: kit-bootstrap.sh"]
+    P4["Phase 4: install-project"]
+    P5["Phase 5: Polish"]
+
+    P0 --> P1
+    P0 --> P2
+    P1 --> P5
+    P2 --> P3
+    P2 --> P4
+    P3 --> P5
+    P4 --> P5
+```
+
+Phase 1 e Phase 2 são **independentes** e podem ser executadas em paralelo após Phase 0.
+Phase 3 e Phase 4 dependem de Phase 2 (libs shell) e podem ser executadas em paralelo entre si.
+Phase 5 depende de todas as anteriores.
+
+## Parallel Execution
+
+Tasks marcadas [P] dentro da mesma fase podem ser executadas simultaneamente.
+
+| Fase | Tasks paralelas |
+|---|---|
+| Phase 1 | T001 (testes TDD Red Phase) — T002, T003 (resolvedores) — T006, T007 (alinhamento leitores) |
+| Phase 2 | T009, T010, T011, T012, T013, T013-B (libs e smoke-tests isolados) |
+

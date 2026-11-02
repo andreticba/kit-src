@@ -1,32 +1,92 @@
 #!/usr/bin/env bash
-# kit-bootstrap.sh | Vitalia SDD v0.6.0
-# Atualizado em: 16-10-2026 16:55(GMT-04:00)
+# kit-bootstrap.sh | Vitalia SDD v0.6.0 | 31-10-2026 15:50:00(GMT-04:00)
 #
 # FASE 1: Bootstrap Universal do Kit Vitalia (Agnóstico para GitHub).
 #
 # O que este script faz:
-#   1. Anuncia expressamente a configuração do .venv e requirements.txt do projeto.
-#   2. Localiza e sincroniza os arquivos do Kit para ~/.vitalia/
-#   3. Cria e gerencia o ambiente virtual (.venv) EXCLUSIVAMENTE na raiz do projeto local.
-#   4. Aplica salvaguardas não-destrutivas com backup (.bak) para .env e requirements.txt.
-#   5. Instala as dependências e valida a conectividade de ambiente.
+#   1. Valida pré-requisitos fail-fast (não-root, python>=3.10, venv, git, rsync).
+#   2. Localiza e sincroniza os arquivos do Kit para ~/.vitalia/ via rsync seguro.
+#   3. Alerta e oferece limpeza interativa para ~/.vitalia/memory/ órfão.
+#   4. Gerencia .env e requirements.txt do projeto local de forma não-destrutiva.
+#   5. Configura e gerencia .venv local e instala dependências.
+#
+# Referências: FR-012, FR-013, FR-014, FR-015, P04, P06, NF-001, NF-002, NF-003.
 
 set -euo pipefail
 
-# ─── CORES PARA OUTPUT ───────────────────────────────────────────────────────
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-BOLD='\033[1m'
-NC='\033[0m' # No Color
-
-# ─── DIRETÓRIOS E PATHS ──────────────────────────────────────────────────────
+# ─── DIRETÓRIOS E PATHS BÁSICOS ──────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(pwd)"
 KIT_DEST="${HOME}/.vitalia"
 VENV_DIR="${PROJECT_ROOT}/.venv"
+LIB_DIR="${SCRIPT_DIR}/source/bin/lib"
+
+# ─── PRÉ-REQUISITOS FAIL-FAST (FR-014) ───────────────────────────────────────
+# 1. Bloqueio mandatória de execução como root/sudo
+if [ "$(id -u)" -eq 0 ]; then
+    echo "❌ ERRO: O kit-bootstrap.sh não deve ser executado como root ou com sudo." >&2
+    echo "   Execute com o seu usuário normal para que o Kit seja configurado no seu \$HOME." >&2
+    exit 1
+fi
+
+# 2. Carrega biblioteca de logger se disponível
+if [ -f "${LIB_DIR}/logger.sh" ]; then
+    # shellcheck source=/dev/null
+    source "${LIB_DIR}/logger.sh"
+else
+    log_ok()    { echo "   ✅ $*"; }
+    log_warn()  { echo "   ⚠️  $*"; }
+    log_error() { echo "   ❌ $*" >&2; }
+    log_step()  { echo -e "\n🔷 PASSO $1 — $2"; }
+fi
+
+# 3. Carrega gerenciador de env se disponível
+if [ -f "${LIB_DIR}/env_manager.sh" ]; then
+    # shellcheck source=/dev/null
+    source "${LIB_DIR}/env_manager.sh"
+fi
+
+# 4. Verificação de comandos essenciais (python3, git, rsync)
+for cmd in python3 git rsync; do
+    if ! command -v "$cmd" &>/dev/null; then
+        local_os=""
+        if [ -f /etc/os-release ]; then
+            local_os="$(grep -E '^ID=' /etc/os-release | cut -d= -f2 | tr -d '"')"
+        fi
+        log_error "Comando '$cmd' não encontrado. Pré-requisito obrigatório."
+        case "$local_os" in
+            ubuntu|debian)
+                echo "   💡 Sugestão para Debian/Ubuntu: sudo apt update && sudo apt install -y $cmd" >&2
+                ;;
+            fedora|rhel|centos)
+                echo "   💡 Sugestão para Fedora/RHEL: sudo dnf install -y $cmd" >&2
+                ;;
+            arch)
+                echo "   💡 Sugestão para Arch Linux: sudo pacman -S $cmd" >&2
+                ;;
+            *)
+                echo "   💡 Instale '$cmd' através do gerenciador de pacotes do seu sistema." >&2
+                ;;
+        esac
+        exit 1
+    fi
+done
+
+# 5. Verificação da versão do Python (>= 3.10)
+PYTHON_VERSION="$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
+if ! python3 -c "import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)" &>/dev/null; then
+    log_error "Python 3.10+ é obrigatório. Encontrado: Python ${PYTHON_VERSION}"
+    exit 1
+fi
+
+# 6. Verificação do módulo venv funcional
+if ! python3 -m venv --help &>/dev/null; then
+    log_error "O módulo python3-venv não está funcional."
+    if [ -f /etc/os-release ] && grep -qE '^ID=(ubuntu|debian)' /etc/os-release; then
+        echo "   💡 Sugestão para Debian/Ubuntu: sudo apt update && sudo apt install -y python3-venv" >&2
+    fi
+    exit 1
+fi
 
 # ─── FLAGS ───────────────────────────────────────────────────────────────────
 DRY_RUN=false
@@ -44,71 +104,35 @@ for arg in "$@"; do
 done
 
 # ─── BANNER EXPLICITO DE INICIALIZAÇÃO ───────────────────────────────────────
-echo -e "${BOLD}${CYAN}════════════════════════════════════════════════════════════════════════════${NC}"
-echo -e "${BOLD}${CYAN}           🌿 VITALIA SDD KIT — BOOTSTRAP UNIVERSAL (v0.6.0)               ${NC}"
-echo -e "${BOLD}${CYAN}════════════════════════════════════════════════════════════════════════════${NC}"
-echo -e "  ${BOLD}Projeto Alvo:${NC} ${PROJECT_ROOT}"
-echo -e "  ${BOLD}Destino Kit Global:${NC} ${KIT_DEST}"
-echo -e "  ${BOLD}Ambiente Virtual (.venv):${NC} ${VENV_DIR}"
-echo -e "${BOLD}${CYAN}────────────────────────────────────────────────────────────────────────────${NC}"
+echo -e "\033[1;36m════════════════════════════════════════════════════════════════════════════\033[0m"
+echo -e "\033[1;36m           🌿 VITALIA SDD KIT — BOOTSTRAP UNIVERSAL (v0.6.0)               \033[0m"
+echo -e "\033[1;36m════════════════════════════════════════════════════════════════════════════\033[0m"
+echo -e "  \033[1mProjeto Alvo:\033[0m ${PROJECT_ROOT}"
+echo -e "  \033[1mDestino Kit Global:\033[0m ${KIT_DEST}"
+echo -e "  \033[1mAmbiente Virtual (.venv):\033[0m ${VENV_DIR}"
+echo -e "\033[1;36m────────────────────────────────────────────────────────────────────────────\033[0m"
 
 if $DRY_RUN; then
-    echo -e "${YELLOW}[DRY-RUN] Modo de simulação ativado. Nenhuma alteração será persistida em disco.${NC}\n"
+    echo -e "\033[1;33m[DRY-RUN] Modo de simulação ativado. Nenhuma alteração será persistida em disco.\033[0m\n"
 fi
-
-# ─── FUNÇÕES AUXILIARES ───────────────────────────────────────────────────────
-TOTAL_STEPS=5
-
-log_step() {
-    echo -e "\n${BOLD}${BLUE}[${1}/${TOTAL_STEPS}] ${2}${NC}"
-}
-
-log_ok() {
-    echo -e "   ${GREEN}✅ ${1}${NC}"
-}
-
-log_warn() {
-    echo -e "   ${YELLOW}⚠️  ${1}${NC}"
-}
-
-log_error() {
-    echo -e "   ${RED}❌ ${1}${NC}"
-}
 
 run_or_dry() {
     if $DRY_RUN; then
-        echo -e "   ${YELLOW}[DRY] ${*}${NC}"
+        echo -e "   \033[1;33m[DRY] ${*}\033[0m"
     else
         "$@"
     fi
 }
 
-# ─── STEP 1: VERIFICAÇÃO DE PRÉ-REQUISITOS LOCAIS ─────────────────────────────
-log_step 1 "Verificando pré-requisitos do sistema"
+# ─── STEP 1: PRÉ-REQUISITOS VALIDADOS ─────────────────────────────────────────
+log_step 1 "Verificação de pré-requisitos concluída"
+log_ok "Python ${PYTHON_VERSION} (≥ 3.10 ✓)"
+log_ok "python3-venv funcional"
+log_ok "Git $(git --version | awk '{print $3}')"
+log_ok "Rsync disponível"
+log_ok "Execução como usuário não-root confirmada"
 
-if command -v python3 &>/dev/null; then
-    PYTHON_VERSION=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
-    PYTHON_MAJOR=$(echo "$PYTHON_VERSION" | cut -d. -f1)
-    PYTHON_MINOR=$(echo "$PYTHON_VERSION" | cut -d. -f2)
-    if [[ "$PYTHON_MAJOR" -ge 3 && "$PYTHON_MINOR" -ge 10 ]]; then
-        log_ok "Python ${PYTHON_VERSION} (≥ 3.10 ✓)"
-    else
-        log_error "Python ${PYTHON_VERSION} encontrado, mas 3.10+ é obrigatório."
-        exit 1
-    fi
-else
-    log_error "python3 não encontrado. Instale Python 3.10+."
-    exit 1
-fi
-
-if command -v git &>/dev/null; then
-    log_ok "Git $(git --version | awk '{print $3}')"
-else
-    log_error "git não encontrado. Instale com seu gerenciador de pacotes."
-    exit 1
-fi
-
-# ─── STEP 2: SINCRONIZAÇÃO DO KIT PARA ~/.vitalia/ ────────────────────────────
+# ─── STEP 2: SINCRONIZAÇÃO SEGURA DO KIT PARA ~/.vitalia/ ─────────────────────
 log_step 2 "Sincronizando arquivos do Kit para ${KIT_DEST}/"
 
 KIT_SRC_DIR=""
@@ -120,7 +144,7 @@ elif [[ -d "${SCRIPT_DIR}/kit-global" ]]; then
     KIT_SRC_DIR="${SCRIPT_DIR}/kit-global"
 else
     if ! $DRY_RUN; then
-        echo -e "${YELLOW}Diretório de fontes do Kit não localizado automaticamente.${NC}"
+        echo -e "\033[1;33mDiretório de fontes do Kit não localizado automaticamente.\033[0m"
         read -r -p "Informe o caminho da pasta de fontes do Kit (ex: /path/to/source): " USER_INPUT_SRC
         if [[ -d "${USER_INPUT_SRC}" ]]; then
             KIT_SRC_DIR="${USER_INPUT_SRC}"
@@ -136,46 +160,45 @@ fi
 log_ok "Fonte do Kit identificada em: ${KIT_SRC_DIR}"
 
 run_or_dry mkdir -p "${KIT_DEST}"
+
+# Sincronização segura com checksum e filtros anti-poluição de tmp/ (FR-012)
 run_or_dry rsync \
     --archive \
+    --checksum \
     --exclude="*.pyc" \
     --exclude="__pycache__" \
     --exclude=".git" \
+    --exclude="/tmp/" \
+    --filter="protect /tmp/***" \
     "${KIT_SRC_DIR}/" \
     "${KIT_DEST}/"
 
 log_ok "Kit sincronizado com sucesso em ${KIT_DEST}/"
 
+# Detecção de diretório órfão ~/.vitalia/memory/ (FR-013)
+if [ -d "${KIT_DEST}/memory" ]; then
+    log_warn "Diretório órfão detectado em ${KIT_DEST}/memory/ (vazamento de versões anteriores)."
+    if [ -t 0 ] && ! $DRY_RUN; then
+        read -r -p "   Deseja remover o diretório órfão ~/.vitalia/memory/? [s/N]: " rm_choice
+        if [[ "${rm_choice:-n}" =~ ^[Ss]$ ]]; then
+            rm -rf "${KIT_DEST}/memory"
+            log_ok "Diretório órfão ~/.vitalia/memory/ removido com sucesso."
+        else
+            log_warn "Diretório ~/.vitalia/memory/ mantido por decisão do usuário."
+        fi
+    else
+        log_warn "Execute 'rm -rf ~/.vitalia/memory' para limpar dados residuais órfãos se desejar."
+    fi
+fi
+
 # ─── STEP 3: SALVAGUARDAS DE .env NO PROJETO LOCAL ────────────────────────────
 log_step 3 "Gerenciando variáveis de ambiente (.env) no projeto local"
 
 PROJECT_ENV="${PROJECT_ROOT}/.env"
-if [[ -f "${PROJECT_ENV}" ]]; then
-    log_warn "Arquivo .env existente detectado em ${PROJECT_ENV}"
-    log_ok "Criando cópia preventiva de segurança: ${PROJECT_ENV}.bak"
-    run_or_dry cp -n "${PROJECT_ENV}" "${PROJECT_ENV}.bak"
-
-    # Inclusão aditiva não-destrutiva de variáveis essenciais caso ausentes
-    if ! $DRY_RUN; then
-        if ! grep -q "^VITALIA_ENVIRONMENT=" "${PROJECT_ENV}"; then
-            echo -e "\n# Configurações do Vitalia SDD Kit adicionadas pelo bootstrap" >> "${PROJECT_ENV}"
-            echo "VITALIA_ENVIRONMENT=development" >> "${PROJECT_ENV}"
-        fi
-        if ! grep -q "^REDIS_URL=" "${PROJECT_ENV}"; then
-            echo "REDIS_URL=redis://127.0.0.1:6379/0" >> "${PROJECT_ENV}"
-        fi
-    fi
-    log_ok "Variáveis do Kit mescladas ao .env com segurança (valores pré-existentes preservados)"
+if ! $DRY_RUN; then
+    manage_kit_env "${PROJECT_ENV}" "${KIT_DEST}"
 else
-    log_ok "Arquivo .env não encontrado. Provisionando .env inicial a partir do modelo..."
-    if ! $DRY_RUN; then
-        cat << 'EOF' > "${PROJECT_ENV}"
-# .env | Vitalia SDD Kit
-VITALIA_ENVIRONMENT=development
-REDIS_URL=redis://127.0.0.1:6379/0
-EOF
-    fi
-    log_ok "Arquivo .env inicial criado com sucesso em ${PROJECT_ENV}"
+    echo -e "   \033[1;33m[DRY] manage_kit_env ${PROJECT_ENV} ${KIT_DEST}\033[0m"
 fi
 
 # ─── STEP 4: SALVAGUARDAS DE requirements.txt E VIRTUALENV (.venv) ────────────
@@ -184,11 +207,15 @@ log_step 4 "Configurando virtualenv local (.venv) e dependências (requirements.
 PROJECT_REQ="${PROJECT_ROOT}/requirements.txt"
 KIT_REQ="${KIT_DEST}/config/requirements-kit.txt"
 
-# 4.1 Gerenciamento do requirements.txt
+# 4.1 Gerenciamento do requirements.txt com backup portável (NF-003)
 if [[ -f "${PROJECT_REQ}" ]]; then
     log_warn "requirements.txt existente detectado no projeto."
-    log_ok "Criando cópia preventiva de segurança: ${PROJECT_REQ}.bak"
-    run_or_dry cp -n "${PROJECT_REQ}" "${PROJECT_REQ}.bak"
+    if [ ! -e "${PROJECT_REQ}.bak" ]; then
+        run_or_dry cp "${PROJECT_REQ}" "${PROJECT_REQ}.bak"
+        log_ok "Criando cópia preventiva de segurança: ${PROJECT_REQ}.bak"
+    else
+        log_ok "Backup existente ${PROJECT_REQ}.bak preservado"
+    fi
     log_ok "Instalação em camadas ativada: dependências do projeto + dependências do Kit."
 else
     log_ok "Nenhum requirements.txt encontrado. Criando requirements.txt inicial com dependências do Kit..."
@@ -227,9 +254,9 @@ if ! $DRY_RUN; then
         "${VENV_DIR}/bin/pip" install --quiet -r "${KIT_REQ}"
     fi
 else
-    echo -e "   ${YELLOW}[DRY] ${VENV_DIR}/bin/pip install -r ${PROJECT_REQ}${NC}"
+    echo -e "   \033[1;33m[DRY] ${VENV_DIR}/bin/pip install -r ${PROJECT_REQ}\033[0m"
     if [[ -f "${KIT_REQ}" ]]; then
-        echo -e "   ${YELLOW}[DRY] ${VENV_DIR}/bin/pip install -r ${KIT_REQ}${NC}"
+        echo -e "   \033[1;33m[DRY] ${VENV_DIR}/bin/pip install -r ${KIT_REQ}\033[0m"
     fi
 fi
 log_ok "Dependências instaladas com sucesso no .venv local."
@@ -246,11 +273,11 @@ fi
 
 # ─── CONCLUÍDO ────────────────────────────────────────────────────────────────
 echo ""
-echo -e "${BOLD}${GREEN}════════════════════════════════════════════════════════════════════════════${NC}"
-echo -e "${BOLD}${GREEN}  ✅ BOOTSTRAP DO VITALIA KIT CONCLUÍDO COM SUCESSO!                        ${NC}"
-echo -e "${BOLD}${GREEN}════════════════════════════════════════════════════════════════════════════${NC}"
-echo -e "  • Kit Global em:      ${BOLD}${KIT_DEST}/${NC}"
-echo -e "  • Virtualenv local:   ${BOLD}${VENV_DIR}/${NC}"
-echo -e "  • Dependências:       ${BOLD}${PROJECT_REQ}${NC} (backup: .bak)"
-echo -e "  • Configuração:       ${BOLD}${PROJECT_ENV}${NC} (backup: .bak)"
+echo -e "\033[1;32m════════════════════════════════════════════════════════════════════════════\033[0m"
+echo -e "\033[1;32m  ✅ BOOTSTRAP DO VITALIA KIT CONCLUÍDO COM SUCESSO!                        \033[0m"
+echo -e "\033[1;32m════════════════════════════════════════════════════════════════════════════\033[0m"
+echo -e "  • Kit Global em:      \033[1m${KIT_DEST}/\033[0m"
+echo -e "  • Virtualenv local:   \033[1m${VENV_DIR}/\033[0m"
+echo -e "  • Dependências:       \033[1m${PROJECT_REQ}\033[0m (backup: .bak)"
+echo -e "  • Configuração:       \033[1m${PROJECT_ENV}\033[0m (backup: .bak)"
 echo ""

@@ -125,14 +125,26 @@ Atualizo o CONTEXT.md com o progresso?
 
 ---
 
-## Integração com Especialistas
+---
 
-Se um chunk tocar dado clínico, o par faz pausa automática:
+## 🚨 Trava de Escalação Invertida (Protocolo HITL - FR-007 / ADR-004)
 
-```
-💭 Chunk N toca [dado de saúde].
-Antes de propor: consultando @endocrinologist...
-[recebe constraint]
-Proposta atualizada com constraint validado ↓
-```
+Se durante a proposição de chunks ou discussão for identificado:
+- Desvio do escopo definido na spec ou tarefas do tasks.md;
+- Necessidade de novas regras de negócio ou alteração arquitetural profunda;
+- Extrapolação de domínio não acordada:
+
+O agente DEVE:
+1. Interromper imediatamente o pair programming (não propor novos chunks de código).
+2. Gravar o relatório de divergência em `.vitalia/memory/data_storage/handoffs/divergence_<uuid_8>.json`.
+3. Criar handoff reverso:
+   ```bash
+   python3 ~/.vitalia/src/vitalia_handoff.py create \
+     --source "pair" \
+     --target "brainstorming" \
+     --direction "reverse" \
+     --intent "route_to_brainstorming" \
+     --summary ".vitalia/memory/data_storage/handoffs/divergence_<uuid_8>.json"
+   ```
+4. Suspender a sessão e orientar o desenvolvedor a repactuar a arquitetura via `/vitalia-brainstorming`.
 """

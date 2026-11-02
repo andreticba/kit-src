@@ -193,7 +193,8 @@ class GuardianContextV2:
         self.guardian_config = guardian_config or {}
         self.cwd = cwd or Path.cwd()
         self.session_dir = session_dir or (self.cwd / ".vitalia" / "memory" / "session")
-        self.kit_root = Path.home() / ".vitalia"
+        kit_dir_env = os.environ.get("VITALIA_KIT_DIR")
+        self.kit_root = Path(kit_dir_env).expanduser().resolve() if kit_dir_env else (Path.home() / ".vitalia")
         self.profiles_dir = self.kit_root / "profiles"
         self.tmp_dir = self.kit_root / "tmp"
         self.tmp_dir.mkdir(parents=True, exist_ok=True)
@@ -325,6 +326,24 @@ class GuardianContextV2:
                 "medical-gate": {"pending_tasks": 0}
             }
 
+        # Ingestão de session_context.handoff (FR-005, P02 Zero Data Leak)
+        try:
+            import importlib.util
+            vh_path = self.kit_root / "src" / "vitalia_handoff.py"
+            if vh_path.exists():
+                spec = importlib.util.spec_from_file_location("vitalia_handoff", str(vh_path))
+                if spec and spec.loader:
+                    vh_mod = importlib.util.module_from_spec(spec)
+                    spec.loader.exec_module(vh_mod)
+                    resolve_fn = getattr(vh_mod, "resolve_storage_dir", None)
+                    handoff_storage = resolve_fn(start=Path(self.cwd), lenient=True) if resolve_fn else None
+                    if handoff_storage:
+                        handoff_data = vh_mod.latest_handoff(target_workflow=self.workflow_name, storage_dir=handoff_storage)
+                        if handoff_data:
+                            session_ctx["handoff"] = handoff_data
+        except Exception:
+            pass
+
         return session_ctx
 
     # -------------------------------------------------------------------------
@@ -386,6 +405,13 @@ class GuardianContextV2:
         tokens_cfg = profile.get("tokens", {})
         total_budget = tokens_cfg.get("total_budget", 500)
         weights = tokens_cfg.get("source_weights", {})
+
+        # T018: Equalização adaptativa de tokens por hardware profile
+        hw_profile = self.guardian_config.get("hardware_profile") or os.environ.get("VITALIA_HARDWARE_PROFILE", "")
+        if hw_profile == "lightweight":
+            total_budget = min(total_budget, 1000)
+        elif hw_profile == "frontier":
+            total_budget = min(total_budget, 4000)
 
         payload_sources = {}
         for src_name in yaml_sources:
@@ -476,6 +502,12 @@ def main():
     parser.add_argument("--session-dir", default=None, help="Caminho do diretório de sessão")
     parser.add_argument("--cwd", default=None, help="Caminho da raiz do projeto")
     parser.add_argument("--args", default="", help="Argumentos do usuário")
+
+    # Normaliza defensivamente --args <val> para --args=<val> quando <val> inicia com hífen
+    for idx in range(len(sys.argv) - 1):
+        if sys.argv[idx] == "--args" and sys.argv[idx + 1].startswith("-"):
+            sys.argv[idx] = f"--args={sys.argv.pop(idx + 1)}"
+            break
 
     args = parser.parse_args()
 
