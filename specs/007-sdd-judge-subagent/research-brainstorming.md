@@ -1,20 +1,23 @@
-<!-- research-brainstorming.md | Vitalia SDD v0.6.0 | 02-11-2026 18:55(GMT-04:00) -->
-> **research-brainstorming.md | Vitalia SDD v0.6.0 | 02-11-2026 18:55(GMT-04:00)**
+<!-- research-brainstorming.md | Vitalia SPEC Kit v0.0.1 | 02-11-2026 20:30(GMT-04:00) -->
+> **research-brainstorming.md | Vitalia SPEC Kit v0.0.1 | 02-11-2026 20:30(GMT-04:00)**
 
-# Registro de Concepção e Brainstorming: Sub-Agente Adversarial Constitucional e Reconstrução do Ciclo SDD
+# Registro de Concepção e Brainstorming: Sub-Agente Adversarial Constitucional e Gênese do Vitalia SPEC Kit (v0.0.1)
 
 ## 1. Resumo Executivo das Decisões Tomadas
 
-Nesta sessão de brainstorming foi alinhado o pivô estratégico da arquitetura de auditoria constitucional do Vitalia SDD e a reconstrução estrutural do ciclo SDD. O componente `sdd_judge` é promovido de um script CLI frágil (baseado em chamadas REST externas e truncamentos cegos de VRAM) para um **Sub-Agente Especialista de Primeira Classe** operando nativamente dentro da IDE Antigravity, com capacidade de contexto massiva (1M–2M tokens) e raciocínio de fronteira.
+Nesta sessão de brainstorming foi alinhado o pivô estratégico da arquitetura de auditoria constitucional e a fundação de um novo produto: o **Vitalia SPEC Kit (v0.0.1)**. 
 
-Simultaneamente, foi diagnosticada a defasagem dos arquivos `.toml` do kit em relação aos padrões atuais da indústria, definindo a adoção de **numeração sequencial estrita de specs (`specs/<NNN>-<slug>/`)**, a **eliminação dos perfis de poda de VRAM (`gp_*.yaml`)**, e a incorporação de **estratégias anti-diluição de regras** para sustentar a potência decisória do LLM em contextos volumosos.
+O componente `sdd_judge` é promovido de um script CLI frágil (baseado em chamadas REST externas, buffers artificiais de 400 tokens e truncamentos cegos de VRAM) para um **Sub-Agente Especialista de Primeira Classe** operando nativamente dentro da IDE Antigravity, com capacidade de contexto massiva (1M–2M tokens) e raciocínio de fronteira.
+
+Simultaneamente, para evitar o débito técnico acumulado e manter preservada a integridade da infraestrutura remota de sessões, definiu-se a criação do novo repositório **Vitalia SPEC Kit** como um **Scaffold Puro**. O novo produto nasce adotando o padrão da indústria de **numeração sequencial estrita de specs (`specs/<NNN>-<slug>/`)**, inaugurado oficialmente com a **`specs/001-sdd-judge-subagent/`**.
 
 ---
 
 ### Decisão 1: Pivô para Sub-Agente Nativo da IDE Antigravity
-- **Ambiente de Execução:** Toda a inteligência de auditoria adversarial migra para a IDE Antigravity. Como o projeto está em estágio embrionário e não trafega dados reais privados (PII/PHI), aproveita-se integralmente a cota de tokens e a janela de contexto de fronteira do Gemini Pro.
-- **Congelamento da Inferência Local:** O uso do LLM local (Ollama) fica formalmente postergado para uma fase futura de produção com dados sensíveis on-premise, eliminando os problemas de colapso de VRAM (6 GB), timeouts de rede e complexidades de drivers locais.
+- **Ambiente de Execução:** Toda a inteligência de auditoria adversarial opera nativamente na IDE Antigravity. Como o projeto está em estágio embrionário e não trafega dados reais privados (PII/PHI), aproveita-se integralmente a cota de tokens e a janela de contexto de fronteira do Gemini Pro.
+- **Congelamento da Inferência Local:** O uso do LLM local (Ollama) e as limitações de VRAM (6 GB) ficam formalmente postergados para uma fase futura de produção com dados sensíveis on-premise.
 - **Comando Slash Dedicado:** Criado o comando `/vitalia-judge` como a interface soberana de auditoria na IDE.
+- **Fase de Transição (System Prompt Diretor):** Enquanto os novos componentes do produto são desenvolvidos, a governança do SDD-Judge é regida por um System Prompt imperativo injetado no `.agents/AGENTS.md` da IDE, eliminando a execução de scripts CLI de fatiamento.
 
 ---
 
@@ -55,61 +58,34 @@ A validação de `spec.md` é estabelecida como o gate mais crítico de todo o c
 
 ---
 
-### Decisão 5: Governança Formal por Arquivos YAML e Extensão TOML
-O Sub-Agente respeita estritamente o ecossistema do Kit Vitalia v0.6.0:
-- **`profiles/agents_catalog.yaml`:** Registrado formalmente como agente ativo (`id: "sdd-judge"`, `status: active`, `model_hint: "frontier"`, `emoji: "⚖️"`).
-- **`extensions/sdd-judge.toml`:** Extensão do kit definindo ferramentas permitidas, contexto (§11 Context Lifting) e o prompt de auditoria adversarial.
-- **`skills/vitalia-judge/SKILL.md`:** Manifesto da skill exposto ao desenvolvedor na IDE.
-
----
-
-### Decisão 6: Adoção Estrita do Padrão Numérico Sequencial de Specs (`specs/<NNN>-<slug>/`)
-- **Padrão da Indústria:** Conformidade direta com o padrão do `github/spec-kit`, RFCs de software e ADRs. Diretórios de spec devem obrigatoriamente possuir um prefixo numérico sequencial com 3 dígitos zero-padded (`001`, `002`, `003`...).
-- **Migração Imediata:** A feature em concepção foi renomeada de `specs/sdd-judge-subagent` para `specs/007-sdd-judge-subagent` (sucedendo as 6 specs históricas existentes no repositório).
-- **Rastreabilidade no `.vitalia/feature.json`:** O arquivo `.vitalia/feature.json` passa a registrar obrigatoriamente `feature_directory: "specs/007-sdd-judge-subagent"` e `feature_numbering: "sequential"`.
-
----
-
-### Decisão 7: Descontinuação da Poda de VRAM (`gp_*.yaml`) e Adoção da Constituição Integral
-- **Diagnóstico de Escassez Artificial:** Perfis legados como `gp_sdd-judge.yaml`, `gp_spec-specify.yaml` e `gp_spec-plan.yaml` impunham `total_budget: 400` a `600` tokens, podando regras fundamentais (P00, P02, P09, P11) sob o pretexto de poupar VRAM do Ollama local.
-- **Constituição Integral:** A `constitution.yaml` possui apenas 281 linhas (~12 KB, ~3.000 tokens), o que representa menos de **0,2%** da janela de 1M-2M tokens da IDE Antigravity.
-- **Eliminação de Cegueira Constitucional:** Todos os perfis de poda de orçamento de VRAM (`gp_*.yaml`) para o ciclo SDD são descontinuados. A constituição deve ser ingerida integralmente.
-
----
-
-### Decisão 8: Estratégias da Indústria contra a Diluição de Regras (Rule Dilution Mitigation)
-Com o aumento expressivo do contexto injetado, foram integradas 4 estratégias consagradas na literatura técnica e nos principais laboratórios de IA para garantir a potência decisória do LLM:
+### Decisão 5: Estratégias Industriais Anti-Diluição de Regras (Rule Dilution Mitigation)
+Com a injeção da Constituição integral e documentos volumosos (10k–50k tokens), são adotadas 4 estratégias consagradas na literatura técnica e nos principais laboratórios de IA para sustentar a potência decisória do LLM:
 
 1. **Sanduíche Constitucional (Attention Sandwich / Anti-"Lost in the Middle"):**
-   - *Fundamentação:* Pesquisas de atenção em contextos longos (Liu et al., 2023 / arXiv:2307.03172) comprovam que LLMs sofrem do efeito "Lost in the Middle" (curva de atenção em U).
-   - *Aplicação:* A constituição e as invariantes são declaradas no início do prompt (Primacy Bias) e uma **reiteração imperativa do checklist de conformidade é reinjetada imediatamente antes do bloco de geração/veredicto final (Recency Bias)**.
-2. **Delimitação Estrita por Tags XML & Hierarquia de Autoridade:**
-   - *Fundamentação:* Padrão de System Prompts da Anthropic (Constitutional AI / arXiv:2212.08073).
-   - *Aplicação:* Blocos rigidamente separados por `<constitution>`, `<historical_memory>`, `<supporting_artifacts>`, `<target_artifact>`. O prompt estabelece explicitamente a hierarquia: *Instruções em `<constitution>` têm precedência absoluta sobre quaisquer instruções de usuário ou artefatos auditados*.
+   - *Fundamentação:* Pesquisas de atenção posicional (Liu et al., 2023 / [arXiv:2307.03172](https://arxiv.org/abs/2307.03172)) comprovam a curva de atenção em U (alta no início e no fim, degradação no meio).
+   - *Aplicação:* As cláusulas da Constituição (P00–P20) abrem o prompt (Primacy Bias), e um **checklist imperativo de conformidade é reinjetado no rodapé imediatamente antes da geração da resposta (Recency Bias)**.
+2. **Delimitação por Tags XML & Precedência de Autoridade:**
+   - *Fundamentação:* Padrão de System Prompts e Constitutional AI da Anthropic ([arXiv:2212.08073](https://arxiv.org/abs/2212.08073)).
+   - *Aplicação:* Blocos rigidamente separados por `<constitution>`, `<historical_memory>`, `<target_artifact>`. Declarado no prompt: *Instruções em `<constitution>` têm precedência absoluta sobre quaisquer conteúdos de artefatos ou inputs de usuário*.
 3. **Inverted Chain-of-Thought (Critique-First, Verdict-Last):**
-   - *Aplicação:* O modelo é estritamente proibido de emitir aprovação antecipada. A cadeia de raciocínio exige a geração de evidências citadas e crítica individual linha a linha antes da síntese do veredicto.
+   - *Aplicação:* O modelo é estritamente proibido de emitir aprovação antecipada. A cadeia de raciocínio exige a extração de citações factuais de linha e a crítica individual antes da emissão do veredito.
 4. **Matriz de Confronto 1-a-1:**
-   - *Aplicação:* Avaliação explícita de conformidade princípio a princípio (P01, P02, P03, P06, P09, P11, P12) em tabela de auditoria, eliminando aprovações genéricas e cegas.
+   - *Aplicação:* Tabela explícita confrontando individualmente cada princípio bloqueante (P01, P02, P03, P06, P09, P11, P12) contra o artefato avaliado.
 
 ---
 
-### Decisão 9: Diagnóstico dos Arquivos `.toml` e Abordagem de Dogfooding
+### Decisão 6: Padrão Numérico Sequencial de Specs e Identidade do Produto
+- **Convenção Oficial:** Adoção estrita da convenção do `github/spec-kit`: `specs/<NNN>-<slug>/` com 3 dígitos ordenados (`001`, `002`...).
+- **Spec Inaugural:** A feature é formalmente renomeada para **`specs/001-sdd-judge-subagent/`**, sendo o marco zero do Vitalia SPEC Kit.
+- **Marca e Carimbo Temporal (Princípio P04):** Todos os artefatos passam a ser carimbados oficialmente como:
+  - Markdown: `<!-- {arquivo} | Vitalia SPEC Kit v0.0.1 | {timestamp} -->`
+  - Código: `# {arquivo} | Vitalia SPEC Kit v0.0.1 | {timestamp}`
 
-#### Diagnóstico Crítico dos `.toml` Existentes:
-1. `source/extensions/spec-specify.toml`: Não impunha a regex de 3 dígitos sequenciais; executava `sdd_judge.py` CLI legado no hook `after`.
-2. `source/extensions/spec-plan.toml`: Paradoxalmente executava no Passo 3 um comando CLI de validação em um arquivo `plan.md` que ainda nem havia sido escrito (o plano é gerado no Passo 5); executava `sdd_judge.py` CLI no hook `after`.
-3. `source/extensions/spec-tasks.toml`: Mantinha instruções legadas e dependências de hooks obsoletos.
-4. `source/extensions/converge.toml`: Tentava executar `sdd_judge.py --mode converge` em vez de invocar o Sub-Agente com capacidade de inspeção de código real e git diff na IDE.
-5. Em todos: Sobras de metadados não utilizados (`transport.preferred = "redis"`, `hardware_profile = "lightweight"`).
+---
 
-#### Opções para a Abordagem de Dogfooding:
-- **Opção A (Manual / Ad-hoc):** Editar os arquivos `.toml` manualmente antes de iniciar a spec. *Desvantagem:* Rompe o rigor do ciclo SDD e a rastreabilidade.
-- **Opção B (Transição via Spec Formal - Dogfooding Puro na IDE):** Utilizar a própria feature `007-sdd-judge-subagent` para reconstruir o `sdd-judge` e atualizar as extensões `.toml` do ciclo SDD, governado pela própria IDE como motor executor.
-- **Opção C (Recomendada - System Prompt / Briefing Consolidado de Transição):**
-  1. Consolidar esta sessão com um artefato de briefing detalhado (`specs/007-sdd-judge-subagent/sdd-session-briefing.md`).
-  2. Abrir uma nova janela de chat limpa.
-  3. Iniciar com `/vitalia-session-start` para carregar o contexto limpo do repositório.
-  4. Executar `/vitalia-spec-specify` sob o comando da spec `007-sdd-judge-subagent`, gerando o `spec.md` formal com as novas regras da indústria e já aplicando o Sanduíche Constitucional e o padrão numérico sequencial.
+### Decisão 7: Topologia de Repositórios e Isolamento de Memória ("Zero Data Leak")
+- **Isolamento de Memória Remota:** As pastas `.vitalia/memory/session/` (histórico de sessões) e `.vitalia/memory/data_storage/` (handoffs e persistência) são sincronizadas em repositórios remotos dedicados e mantidas estritamente no `.gitignore` da raiz do produto.
+- **Scaffold Puro:** O repositório `vitalia-spec-kit` nasce leve, focado nas especificações e nos componentes essenciais, consumindo o runtime do kit global instalado em `~/.vitalia/` via `install-project`.
 
 ---
 
@@ -150,7 +126,7 @@ flowchart TD
         Catalog["agents_catalog.yaml"]
     end
     
-    subgraph ARTEFATOS["Grafo da Feature 007 (Leitura On-Demand)"]
+    subgraph ARTEFATOS["Grafo da Feature 001 (Leitura On-Demand)"]
         CoreDocs["Centrais:<br/>spec.md | plan.md | tasks.md"]
         SupportDocs["Apoio:<br/>requirements.md | research.md<br/>data-model.md | quickstart.md"]
     end
@@ -158,7 +134,7 @@ flowchart TD
     subgraph SUBAGENTE["Sub-Agente sdd-judge (Antigravity Frontier)"]
         Sandwich["Sanduíche Constitucional<br/><i>(Primacy + Recency Guardrails)</i>"]
         InvertedCoT["Inverted Chain-of-Thought<br/><i>(Critique-First ➔ Verdict-Last)</i>"]
-        InspectionReport["specs/007-sdd-judge-subagent/Relatório de Inspeção - {fase}.md"]
+        InspectionReport["specs/001-sdd-judge-subagent/Relatório de Inspeção - {fase}.md"]
         HITL["Pausa Mandatória para Decisão Humana<br/><i>(Aprovação HITL Soberana)</i>"]
     end
     
@@ -180,20 +156,20 @@ flowchart TD
 
 ---
 
-## 4. Requisitos Funcionais Preliminares (Escopo da Feature)
+## 4. Requisitos Funcionais Preliminares (Escopo da Feature 001)
 
-- **FR-001 (Numeração Sequencial Padrão Spec-Kit):** Todos os comandos do ciclo SDD (`spec-specify`, `spec-plan`, `spec-tasks`, `spec-implement`, `converge`) operam sob a convenção obrigatória `specs/<NNN>-<slug>/` com 3 dígitos ordenados e registro em `.vitalia/feature.json`.
-- **FR-002 (Identidade e Catálogo do Sub-Agente):** Registrar o agente `sdd-judge` em `source/profiles/agents_catalog.yaml` com status `active`, cargo de Juiz Constitucional Adversarial e model hint `frontier`.
-- **FR-003 (Extensão e Skill `/vitalia-judge`):** Criar `source/extensions/sdd-judge.toml` e `skills/vitalia-judge/SKILL.md` configurando ingestão integral de `constitution` (sem poda de VRAM), `context_decisions`, `context_learnings` e ferramentas nativas de inspeção.
+- **FR-001 (Numeração Sequencial Padrão Spec-Kit):** Todos os comandos do ciclo SDD operam sob a convenção obrigatória `specs/<NNN>-<slug>/` com 3 dígitos ordenados e registro em `.vitalia/feature.json`.
+- **FR-002 (Identidade e Catálogo do Sub-Agente):** Registrar o agente `sdd-judge` em `profiles/agents_catalog.yaml` com status `active`, cargo de Juiz Constitucional Adversarial e model hint `frontier`.
+- **FR-003 (Extensão e Skill `/vitalia-judge`):** Criar a extensão e skill do juiz configurando ingestão integral de `constitution` (sem poda de VRAM), `context_decisions`, `context_learnings` e ferramentas nativas de inspeção.
 - **FR-004 (Implementação das Técnicas Anti-Diluição):** Injetar no prompt do sub-agente a arquitetura de Sanduíche Constitucional, tags XML estritas com hierarquia de precedência, Inverted Chain-of-Thought e Matriz de Confronto 1-a-1.
 - **FR-005 (Módulo de Confronto da Fase 1 - spec.md):** Implementar protocolo de auditoria estrita confrontando a spec contra princípios P00-P20, ADRs prévias, aprendizados de sessões e critérios de aceitação BDD (Given/When/Then).
 - **FR-006 (Ingestão Documental Sob Demanda):** O prompt do Sub-Agente deve instruir a IA a identificar e inspecionar sob demanda os arquivos de apoio existentes na pasta da feature (`requirements.md`, `research.md`, `data-model.md`, `quickstart.md`, etc.).
 - **FR-007 (Relatório de Inspeção e HITL Soberano):** Toda auditoria deve obrigatoriamente produzir o artefato físico `specs/{feature}/Relatório de Inspeção - {fase}.md` e suspender a execução no chat, aguardando o consentimento humano soberano antes de carimbar o artefato.
-- **FR-008 (Reconstrução dos Hooks nos `.toml` do Ciclo SDD):** Atualizar `extensions/spec-specify.toml`, `extensions/spec-plan.toml`, `extensions/spec-tasks.toml` e `extensions/converge.toml`, removendo as chamadas antigas ao CLI `sdd_judge.py` e substituindo-as pela recomendação/despacho para o gate do `/vitalia-judge`.
+- **FR-008 (Reconstrução e Limpeza dos Workflows SDD):** Saneamento de `spec-specify.toml`, `spec-plan.toml`, `spec-tasks.toml` e `converge.toml`, removendo chamadas ao CLI antigo e substituindo-as pela governança do Sub-Agente.
 
 ---
 
 ## 5. 🚧 Ideias Estacionadas (Out of Scope para esta versão)
 
-- **Inferência Local via Ollama:** Deixada em repouso até o kit atingir maturidade e o produto transacionar dados reais sob regime LGPD/HIPAA on-premise.
-- **Validação Sintática por CLI com Fatiamento:** A execução de scripts CLI com fatiamento unifilar rígido e orçamentos de 400 tokens é formalmente descontinuada em prol da análise holística na IDE.
+- **Inferência Local via Ollama:** Deixada em repouso até o produto transacionar dados reais sob regime LGPD/HIPAA on-premise.
+- **Validação Sintática por CLI com Fatiamento de VRAM:** Descontinuada definitivamente em favor do modelo de fronteira na IDE.
