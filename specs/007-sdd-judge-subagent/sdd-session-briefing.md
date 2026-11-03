@@ -78,3 +78,11 @@ Digite ou oriente:
 ```
 O agente gerará o `specs/001-sdd-judge-subagent/spec.md` cobrindo os 8 Requisitos Funcionais consolidados já com a assinatura:
 `<!-- spec.md | Vitalia SPEC Kit v0.0.1 | DD-MM-YYYY HH:MM(GMT-04:00) -->`.
+
+---
+
+## 5. Arquitetura de Produto: `source/` vs. Kit Global
+
+- **No repositório:** Todo o código do produto vive dentro de `source/` (`source/src/`, `source/profiles/`, `source/extensions/`).
+- **No kit global (`~/.vitalia/`):** O conteúdo de `source/` é espelhado diretamente sem a pasta intermediária `source/`. O LLM deve entender que qualquer alteração de código do kit deve ser feita em `source/` no repositório para posterior sincronização global.
+
